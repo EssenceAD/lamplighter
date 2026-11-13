@@ -6,7 +6,7 @@ export const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 export function rng(seed) { let s = seed >>> 0; return () => { s += 0x6D2B79F5; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 // ---------- the map: sea at the bottom of the screen (z = +5), village and lighthouse at the top ----------
-export const TOWER = { x: 0, z: -7.4 };                       // the lighthouse on its cliff
+export const TOWER = { x: 0, z: 3.4 };                        // the lighthouse on its cliff, between the sea and the village: it lights both ways
 const smooth = pts => { const o = []; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
   for (let k = 0; k < 6; k++) { const t = k / 6, t2 = t * t, t3 = t2 * t; o.push({ x: 0.5 * (2 * p1[0] + (p2[0] - p0[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (3 * p1[0] - p0[0] - 3 * p2[0] + p3[0]) * t3),
     z: 0.5 * (2 * p1[1] + (p2[1] - p0[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (3 * p1[1] - p0[1] - 3 * p2[1] + p3[1]) * t3) }); } }
@@ -22,7 +22,7 @@ export const LANES = [
   new Lane([[2.7, 5.4], [2.7, 3.0], [2.55, 1.5], [2.7, 0], [2.5, -1.5], [2.3, -3.0], [1.5, -4.5]]),
 ];
 // build spots sit on a 1.5 lattice so 45 degree turns line optics up with each other
-export const SLOTS = [{ x: -1.5, z: -3 }, { x: 1.5, z: -3 }, { x: 0, z: -1.5 }, { x: -1.5, z: 0 }, { x: 1.5, z: 0 }, { x: 0, z: 1.5 }, { x: -1.5, z: 3 }, { x: 1.5, z: 3 }, { x: 0, z: 3 }];
+export const SLOTS = [{ x: -1.5, z: -3 }, { x: 1.5, z: -3 }, { x: 0, z: -1.5 }, { x: -1.5, z: 0 }, { x: 1.5, z: 0 }, { x: 0, z: 1.5 }, { x: -1.5, z: 3 }, { x: 1.5, z: 3 }];
 export const dirVec = d => { const a = (((d % 8) + 8) % 8) * Math.PI / 4; return { x: Math.round(Math.cos(a) * 1e6) / 1e6, z: Math.round(Math.sin(a) * 1e6) / 1e6 }; };
 
 // ---------- what can be built ----------
@@ -128,7 +128,7 @@ export class Game {
     this.rerolls = p.reroll || 0; this.kills = 0; this.earned = 0; this.cards = []; this.offer = null; this.endless = false;
     this.enemies = []; this.nextId = 1; this.q = []; this.qi = 0;
     this.tools = SLOTS.map(() => null); this.lights = []; this.feeds = []; this.dirty = true;
-    this.aim = { x: 0, z: -2 }; this.want = { x: 0, z: -2 }; this.manual = false; this.charge = 0.5; this.flashT = -1; this.bossId = 0;
+    this.aim = { x: 0, z: 0 }; this.want = { x: 0, z: 0 }; this.manual = false; this.charge = 0.5; this.flashT = -1; this.bossId = 0;
     this.events = [];
   }
   ev(type, d = {}) { this.events.push({ type, ...d }); }
@@ -174,7 +174,7 @@ export class Game {
   // ----- light network: optics only work when lit by the lighthouse or by another lit optic
   relink() {
     this.dirty = false; const T = this.tools, m = this.m; for (const t of T) if (t) t.depth = 0;
-    const feed = 5.0 + m.feed; this.feeds = [];
+    const feed = 2.2 + m.feed; this.feeds = [];
     T.forEach((t, i) => { if (t && BUILDS[t.type].optic && Math.hypot(SLOTS[i].x - TOWER.x, SLOTS[i].z - TOWER.z) <= feed) { t.depth = 1; this.feeds.push(i); } });
     const outs = (t, i) => { // rays an optic sends out: [{dx, dz, len}]
       const B = BUILDS[t.type], k = 1 + 0.08 * (t.lvl - 1);
@@ -231,7 +231,7 @@ export class Game {
     // lighthouse aim: the shadow deepest into the village that the light can bite
     if (!this.manual) { let best = null, bs = -1;
       for (const e of this.enemies) { if (Math.hypot(e.x - TOWER.x, e.z - TOWER.z) > P.reach + P.radius * 0.5) continue; const hard = e.type === 'turtle' || e.type === 'crab' || e.type === 'fog' ? 0 : 100; const sc = e.s / LANES[e.lane].total + hard; if (sc > bs) { bs = sc; best = e; } }
-      if (best) { this.want.x = best.x; this.want.z = best.z; } else { this.want.x = Math.sin(this.t * 0.42) * 2.4; this.want.z = -1.5 + Math.sin(this.t * 0.27) * 2.2; } }
+      if (best) { this.want.x = best.x; this.want.z = best.z; } else { this.want.x = Math.sin(this.t * 0.42) * 2.6; this.want.z = 0.2 + Math.sin(this.t * 0.27) * 3.2; } }
     { const wx = this.want.x - TOWER.x, wz = this.want.z - TOWER.z, wd = Math.hypot(wx, wz); if (wd > P.reach) { this.want.x = TOWER.x + wx / wd * P.reach; this.want.z = TOWER.z + wz / wd * P.reach; }
       const dx = this.want.x - this.aim.x, dz = this.want.z - this.aim.z, d = Math.hypot(dx, dz), sp = (this.manual ? 3 : 1) * P.aimSpeed * dt; if (d <= sp) { this.aim.x = this.want.x; this.aim.z = this.want.z; } else { this.aim.x += dx / d * sp; this.aim.z += dz / d * sp; } }
     this.charge = Math.min(1, this.charge + dt / P.flashEvery);
@@ -282,13 +282,13 @@ export class Game {
 // plan: [['b', slot, type, dir], ['u', slot, spec?], ...] carried out in order as shards allow
 export const PLANS = {
   // mirrors only, each lit straight from the lighthouse or from one other mirror: no prism, no lens, no bell
-  mirrors: [['b', 0, 'mirror', 0], ['b', 1, 'mirror', 3], ['b', 2, 'mirror', 0], ['b', 3, 'mirror', 0], ['u', 0], ['u', 1], ['b', 5, 'mirror', 0], ['b', 4, 'mirror', 4], ['u', 3], ['u', 2], ['u', 0], ['u', 1], ['b', 6, 'mirror', 0], ['b', 8, 'mirror', 4], ['u', 5], ['u', 3], ['u', 0, 'twin'], ['u', 1, 'twin'], ['u', 2], ['u', 4], ['b', 7, 'mirror', 4], ['u', 5], ['u', 6], ['u', 2, 'pierce'], ['u', 3, 'pierce']],
+  mirrors: [['b', 6, 'mirror', 0], ['b', 7, 'mirror', 0], ['b', 5, 'mirror', 6], ['b', 2, 'mirror', 4], ['u', 6], ['u', 7], ['b', 3, 'mirror', 4], ['b', 4, 'mirror', 0], ['u', 5], ['u', 2], ['u', 6], ['u', 7], ['b', 0, 'mirror', 0], ['b', 1, 'mirror', 4], ['u', 5], ['u', 2], ['u', 6, 'twin'], ['u', 7, 'twin'], ['u', 3], ['u', 4], ['u', 5], ['u', 2, 'pierce'], ['u', 5, 'pierce']],
   // no optics at all: bells, beacons and firefly jars, no light links
-  solo: [['b', 2, 'beacon', 4], ['b', 3, 'jar', 0], ['b', 4, 'beacon', 0], ['b', 0, 'bell', 0], ['u', 2], ['b', 5, 'jar', 0], ['u', 3], ['b', 1, 'beacon', 0], ['u', 4], ['b', 6, 'beacon', 4], ['u', 2], ['b', 7, 'jar', 0], ['u', 5], ['b', 8, 'bell', 0], ['u', 3], ['u', 0], ['u', 4], ['u', 2, 'hell'], ['u', 3, 'long'], ['u', 5], ['u', 7], ['u', 6], ['u', 1]],
+  solo: [['b', 2, 'beacon', 4], ['b', 3, 'jar', 0], ['b', 4, 'beacon', 0], ['b', 0, 'bell', 0], ['u', 2], ['b', 5, 'jar', 0], ['u', 3], ['b', 1, 'beacon', 0], ['u', 4], ['b', 6, 'beacon', 4], ['u', 2], ['b', 7, 'jar', 0], ['u', 5], ['u', 3], ['u', 0], ['u', 4], ['u', 2, 'hell'], ['u', 3, 'long'], ['u', 5], ['u', 7], ['u', 6], ['u', 1]],
   // the light chain: two mirrors feed a prism, the prism feeds two lenses and a mirror, with a bell, a beacon and a jar around it
-  combo: [['b', 0, 'mirror', 0], ['b', 1, 'mirror', 3], ['b', 2, 'prism', 2], ['b', 3, 'lens', 4], ['b', 4, 'lens', 0], ['b', 5, 'lens', 0], ['b', 8, 'bell', 0], ['u', 2], ['b', 6, 'beacon', 4], ['u', 3], ['u', 4], ['b', 7, 'jar', 0], ['u', 0], ['u', 2], ['u', 5], ['u', 3], ['u', 4], ['u', 8], ['u', 1], ['u', 7], ['u', 6], ['u', 2, 'five'], ['u', 3, 'sun'], ['u', 4, 'sun'], ['u', 5], ['u', 8, 'quick'], ['u', 7], ['u', 0], ['u', 5, 'sun'], ['u', 7, 'long'], ['u', 6], ['u', 6, 'hell'], ['u', 0, 'pierce'], ['u', 1], ['u', 1, 'pierce']],
+  combo: [['b', 6, 'mirror', 0], ['b', 7, 'mirror', 0], ['b', 5, 'prism', 6], ['b', 3, 'lens', 4], ['b', 4, 'lens', 0], ['b', 2, 'lens', 4], ['b', 0, 'bell', 0], ['u', 5], ['b', 1, 'jar', 0], ['u', 3], ['u', 4], ['u', 6], ['u', 5], ['u', 2], ['u', 3], ['u', 4], ['u', 0], ['u', 7], ['u', 1], ['u', 5, 'five'], ['u', 3, 'sun'], ['u', 4, 'sun'], ['u', 2], ['u', 0, 'quick'], ['u', 1], ['u', 6], ['u', 2, 'sun'], ['u', 1, 'long'], ['u', 7], ['u', 6, 'pierce'], ['u', 7, 'pierce']],
 };
-PLANS.bells = [['b', 3, 'bell', 0], ['b', 2, 'jar', 0], ['b', 4, 'bell', 0], ['b', 5, 'jar', 0], ['b', 8, 'bell', 0], ['b', 6, 'jar', 0], ['b', 7, 'jar', 0], ['u', 3], ['u', 2], ['b', 0, 'jar', 0], ['b', 1, 'jar', 0], ['u', 4], ['u', 5], ['u', 3], ['u', 2], ['u', 8], ['u', 6], ['u', 7], ['u', 4], ['u', 5], ['u', 3, 'quick'], ['u', 4, 'quick'], ['u', 2, 'long'], ['u', 5, 'long'], ['u', 8], ['u', 8, 'quick'], ['u', 6], ['u', 6, 'long'], ['u', 7], ['u', 7, 'over'], ['u', 0], ['u', 0], ['u', 0, 'long'], ['u', 1], ['u', 1], ['u', 1, 'over']];
+PLANS.bells = [['b', 3, 'bell', 0], ['b', 2, 'jar', 0], ['b', 4, 'bell', 0], ['b', 5, 'jar', 0], ['b', 6, 'jar', 0], ['b', 7, 'jar', 0], ['u', 3], ['u', 2], ['b', 0, 'bell', 0], ['b', 1, 'jar', 0], ['u', 4], ['u', 5], ['u', 3], ['u', 2], ['u', 6], ['u', 7], ['u', 4], ['u', 5], ['u', 3, 'quick'], ['u', 4, 'quick'], ['u', 2, 'long'], ['u', 5, 'long'], ['u', 0], ['u', 0], ['u', 0, 'quick'], ['u', 6], ['u', 6, 'long'], ['u', 7], ['u', 7, 'over'], ['u', 1], ['u', 1], ['u', 1, 'over']];
 export class PlanBot {
   constructor(game, plan, cards = []) { this.g = game; this.plan = plan.slice(); this.cards = cards; this.i = 0; }
   step() {

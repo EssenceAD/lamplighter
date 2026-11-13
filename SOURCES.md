@@ -62,6 +62,15 @@ https://kenney.nl/assets/particle-pack · Kenney Vleugels (kenney.nl)
 
 게임 규칙, 웨이브·카드 데이터, 무대, 셰이더(색 보정·비네트·빛 원뿔·먼지·불티·충격파 고리·빛줄기)는 이 저장소에서 직접 작성했습니다.
 
+## 4-1. 글꼴 — Google Fonts (SIL Open Font License 1.1)
+
+| 이름 | 용도 |
+|---|---|
+| [Hahmlet](https://fonts.google.com/specimen/Hahmlet) | 한글 |
+| [Fraunces](https://fonts.google.com/specimen/Fraunces) | 숫자·로마자 |
+
+화면의 아이콘(달, 집, 종이 별, 음표, 멈춤, 화살표, 등잔 등)은 이 저장소에서 직접 그린 실루엣이고, 설치물·카드 그림은 추출한 윤곽을 그대로 씁니다. 종이 쪽지의 결은 ambientCG Paper 001 스캔입니다.
+
 ## 5. 소리
 
 오디오 파일은 없습니다. 배경음(첼로·아코디언 왈츠)과 효과음(종이 바스락, "뿅", 섬광, 반짝이, 촛불 꺼짐, 종, 번개)은 모두

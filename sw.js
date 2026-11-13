@@ -1,6 +1,6 @@
 // 등불지기 — service worker: offline play and the "new version" strip.
 // Bump VERSION on every release; the page shows the strip when a new worker is waiting.
-const VERSION = '2.0.0';
+const VERSION = '2.0.1';
 const CACHE = 'lamplighter-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './src/app.js', './src/game.js', './src/harbour.js', './src/audio.js', './src/net.js', './assets/shapes.json', './assets/icon-192.png', './assets/icon-512.png',
   './assets/paper/Paper001_Color.jpg', './assets/paper/Paper001_NormalGL.jpg', './assets/paper/Paper003_NormalGL.jpg',
@@ -15,7 +15,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.hostname.endsWith('supabase.co')) return;            // rankings always go to the network
   e.respondWith(caches.match(e.request, { ignoreSearch: url.origin === location.origin }).then(hit => hit || fetch(e.request).then(res => {
-    if (res.ok && (url.origin === location.origin || url.hostname === 'cdn.jsdelivr.net')) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+    if (res.ok && (url.origin === location.origin || url.hostname === 'cdn.jsdelivr.net' || url.hostname.endsWith('gstatic.com') || url.hostname === 'fonts.googleapis.com')) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
     return res;
   })));
 });
