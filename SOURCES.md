@@ -22,6 +22,7 @@
   - 와양 쿨릿(Wayang kulit) 그림자극
 - 추출 과정: `tools/segment.js`(시트를 도형별로 분리) → `tools/trace.js`(potrace) → `assets/shapes.json`, `assets/svg/*.svg`
 - 길의 중심선(괴물 이동 경로)은 같은 길 실루엣의 거리 변환에서 계산했습니다.
+- 세 번째 괴물은 같은 참고 시트의 두 조각을 합성했습니다(동글한 몸통 + 다른 괴물의 뿔, `tools/compose.js`).
 - 괴물 눈동자, 창문 뒤 발광면, 종이 조각은 코드에서 만든 단순 도형입니다.
 
 ## 2. 종이 질감 — ambientCG (CC0 1.0)
@@ -30,7 +31,7 @@
 
 | 파일 | 원본 | 용도 |
 |---|---|---|
-| `assets/paper/Paper001_Color.jpg`, `Paper001_NormalGL.jpg` | [Paper 001](https://ambientcg.com/view?id=Paper001) 1K-JPG | 모든 종이 조각의 결·노멀, 하늘 배경지 |
+| `assets/paper/Paper001_Color.jpg`, `Paper001_NormalGL.jpg` | [Paper 001](https://ambientcg.com/view?id=Paper001) 1K-JPG | 모든 종이 조각의 결·노멀, 하늘 배경지, 터지는 종이 조각 |
 | `assets/paper/Paper003_NormalGL.jpg` | [Paper 003](https://ambientcg.com/view?id=Paper003) 1K-JPG | 바닥 종이의 구김 노멀 |
 | `assets/paper/Paper006_Color.jpg`, `Paper006_NormalGL.jpg` | [Paper 006](https://ambientcg.com/view?id=Paper006) 1K-JPG | 예비(현재 미사용) |
 
