@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-13T12:17:04.578Z",
+        "reason": "Claude: glows are the game's subject (lit windows, moon, lantern flash button), domain-appropriate; not user confirmed"
+      }
+    ]
+  }
+}
