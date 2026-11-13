@@ -71,7 +71,7 @@ export async function createHarbour(frame, SHAPES) {
   }
   function cutout(name, o) {
     const O = outline(name, o), g = new THREE.Group();
-    const body = new THREE.Mesh(O.gBody ??= new THREE.ExtrudeGeometry(O.main, { depth: 0.03, bevelEnabled: false, curveSegments: 1 }), [o.mat, CORE]);
+    const body = new THREE.Mesh(O.gBody ??= new THREE.ExtrudeGeometry(O.main, { depth: 0.03, bevelEnabled: false, curveSegments: 1 }), [o.mat, o.side ?? CORE]);
     const fr = new THREE.Mesh(O.gFringe ??= new THREE.ShapeGeometry(O.fringe, 1), o.core ?? CORE); fr.position.z = -0.006;
     for (const m of [body, fr]) { m.castShadow = o.cast ?? true; m.receiveShadow = o.receive ?? true; g.add(m); }
     g.userData = { holes: O.holes, w: O.w, h: O.h, O, fringe: fr }; return g;
@@ -98,17 +98,17 @@ export async function createHarbour(frame, SHAPES) {
   const skyMat = new THREE.ShaderMaterial({ uniforms: { map: { value: paperW }, uDawn: { value: 0 } },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
     fragmentShader: `uniform sampler2D map; uniform float uDawn; varying vec2 vUv; void main(){ float h = vUv.y;
-      vec3 night = mix(vec3(0.060,0.085,0.26), vec3(0.012,0.016,0.075), smoothstep(0.25,0.95,h)); vec3 dawn = mix(vec3(0.95,0.47,0.29), vec3(0.30,0.26,0.50), smoothstep(0.28,0.62,h)); dawn = mix(dawn, vec3(1.15,0.70,0.38), smoothstep(0.36,0.22,h));
+      vec3 night = mix(vec3(0.020,0.029,0.10), vec3(0.008,0.011,0.055), smoothstep(0.12,0.42,h)); vec3 dawn = mix(vec3(0.95,0.47,0.29), vec3(0.30,0.26,0.50), smoothstep(0.28,0.62,h)); dawn = mix(dawn, vec3(1.15,0.70,0.38), smoothstep(0.36,0.22,h));
       vec3 c = mix(night, dawn, uDawn); vec2 q = vUv * vec2(9.0, 7.0); c *= 0.9 + (texture2D(map, q).g - texture2D(map, q, 5.0).g) * 5.0; gl_FragColor = vec4(c, 1.0); }` });
-  const sky = new THREE.Mesh(new THREE.PlaneGeometry(34, 24), skyMat); sky.position.set(0, 9, -17); scene.add(sky);
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(34, 24), skyMat); sky.position.set(0, 9, -10.9); scene.add(sky);
   const moonMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.96, 0.8), map: paperW });
-  const moon = cutout('moon', { height: 0.95, mat: moonMat, core: moonMat, cast: false, receive: false }); moon.position.set(2.5, 2.9, -16.4); moon.rotation.z = -0.35; scene.add(moon);
-  const starGeo = new THREE.BufferGeometry(); { const r = rng(11), p = []; for (let i = 0; i < 46; i++) p.push((r() - 0.5) * 13, 2.2 + r() * 2.2, -16.7); starGeo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); }
+  const moon = cutout('moon', { height: 0.95, mat: moonMat, core: moonMat, cast: false, receive: false }); moon.position.set(1.3, 2.35, -10.7); moon.rotation.z = -0.35; scene.add(moon);
+  const starGeo = new THREE.BufferGeometry(); { const r = rng(11), p = []; for (let i = 0; i < 46; i++) p.push((r() - 0.5) * 13, 1.5 + r() * 4.5, -10.8); starGeo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); }
   const starMat = new THREE.PointsMaterial({ map: pStar, size: 0.26, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xaab4e0 }); scene.add(new THREE.Points(starGeo, starMat));
   const cloudRim = dawnTint(new THREE.MeshBasicMaterial({ color: 0xffffff }), new THREE.Color(0.10, 0.14, 0.34), new THREE.Color(0.80, 0.52, 0.46));
-  const cloudA = stand(cutout('cloud_a', { height: 0.7, mat: M.cloud, core: cloudRim, fr0: 2, fr1: 2, step: 6, cast: false, receive: false }), -2.9, -15.2, { y: 2.9, amp: 0.3 });
+  const cloudA = stand(cutout('cloud_a', { height: 0.7, mat: M.cloud, core: cloudRim, fr0: 2, fr1: 2, step: 6, cast: false, receive: false }), -2.9, -10.6, { y: 3.6, amp: 0.3 });
   const wide = (name, x, z, w, h, mat) => { const S = SHAPES[name], h0 = w * S.h / S.w; return stand(cutout(name, { height: h0, squash: h / h0, mat, step: 8, rough: 1.2, cast: false }), x, z, { amp: 0.1 }); };
-  wide('ridge', 0.5, -11.6, 27, 6.5, M.far2);   // tall enough that no strip of sky shows above it on long phones wide('hill_far', -1.5, -9.7, 25, 2.4, M.far1); wide('hill_low', 1.2, -8.0, 23, 1.4, M.far0);
+  wide('ridge', 0.5, -10.4, 27, 1.7, M.far2); wide('hill_far', -1.5, -9.5, 25, 1.25, M.far1); wide('hill_low', 1.2, -8.2, 23, 0.9, M.far0);
   // the lighthouse rock: two cut-paper crags (outlines traced from rock references); the tower rises from behind them
   stand(cutout('crag_a', { height: 1.55, mat: M.cliff, step: 16, rough: 2.2, solid: true, cast: false }), TOWER.x - 0.2, TOWER.z + 0.14, { y: -0.07, amp: 0.08 });
   stand(cutout('crag_b', { height: 0.8, mat: M.cliff2, step: 16, rough: 2.2, solid: true, cast: false }), TOWER.x + 0.6, TOWER.z + 0.36, { y: -0.05, amp: 0.08 }).scale.x = -1;
@@ -127,10 +127,11 @@ export async function createHarbour(frame, SHAPES) {
   // the sea in front: six layers of cut-paper waves (curled crests traced from a reference), each its own blue,
   // the nearest the darkest, each rocking at its own pace. A pale sheet just behind each layer shows as a thin moonlit line along the crests.
   { const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 8), M.seaFloor); floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0.03, 8.15); floor.receiveShadow = true; scene.add(floor); }
-  const rimMat = dawnTint(new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), new THREE.Color(0.40, 0.54, 0.92), new THREE.Color(1.0, 0.8, 0.62));
-  const seaLayer = (name, z, h, count, sp, amp, dir) => { const S = SHAPES[name], w = h * S.w / S.h, g = new THREE.Group(), mat = M.sea[waves.length];
-    for (let k = 0; k < count; k++) { const s = cutout(name, { height: h, mat, step: 13, rough: 0.7, fr0: 1, fr1: 2, cast: false }), O = s.userData.O, rim = new THREE.Mesh(O.gRim ??= new THREE.ShapeGeometry(O.main, 1), rimMat);
-      rim.position.set(-0.012, 0.026 + h * 0.005, -0.012); s.add(rim); s.position.set((k - (count - 1) / 2) * w * 0.9, 0, -k * 0.004); g.add(s); }
+  const RIM = [0.1, 0.14, 0.2, 0.28, 0.4, 0.82, 1.0];   // how strongly each layer's crest catches the moon, back to front
+  const seaLayer = (name, z, h, count, sp, amp, dir) => { const S = SHAPES[name], w = h * S.w / S.h, g = new THREE.Group(), mat = M.sea[waves.length], rs = RIM[waves.length], mc = mat.userData.night, md = mat.userData.dawn,
+      rimMat = dawnTint(new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), new THREE.Color(lerp(mc.r * 1.3, 0.42, rs), lerp(mc.g * 1.3, 0.56, rs), lerp(mc.b * 1.3, 0.95, rs)), new THREE.Color(lerp(md.r, 1.0, rs), lerp(md.g, 0.8, rs), lerp(md.b, 0.62, rs)));
+    for (let k = 0; k < count; k++) { const s = cutout(name, { height: h, mat, side: mat, core: mat, step: 13, rough: 0.7, fr0: 1, fr1: 2, cast: false }), O = s.userData.O, rim = new THREE.Mesh(O.gRim ??= new THREE.ShapeGeometry(O.main, 1), rimMat);
+      rim.position.set(-0.012 * rs, (0.026 + h * 0.005) * (0.35 + 0.65 * rs), -0.012); s.add(rim); s.position.set((k - (count - 1) / 2) * w * 0.9, 0, -k * 0.004); g.add(s); }
     g.scale.x = dir; g.position.set(0, -h * 0.05, z); scene.add(g); waves.push({ g, y: -h * 0.05, amp, sp, ph: waves.length * 1.9, drift: 0.34 + 0.05 * waves.length }); };
   // each layer stands close enough behind the next that the floor never shows through a trough (no flat bands anywhere)
   seaLayer('wave_c', 4.3, 0.8, 3, 0.62, 0.02, 1); seaLayer('wave_a', 4.7, 1.0, 2, 0.95, 0.025, -1); seaLayer('wave_c', 5.2, 1.25, 2, 0.7, 0.03, 1);
@@ -322,7 +323,7 @@ export async function createHarbour(frame, SHAPES) {
       for (const e of game.enemies) { const K = kinds[e.type]; if (!K) continue; const ph = clock * (5 + e.spd * 3) + e.ph, hop = e.stun > 0 ? 0 : Math.abs(Math.sin(ph)), lift = (e.air > 0 ? Math.sin(e.air * Math.PI) * 0.9 : hop * 0.06 * Math.min(2, K.h * 2)) - Math.max(0, 1 - e.s) * K.h * 0.55;   // they crawl up out of the waves
         if (e.lit > 0.1) hitPulse = 1;
         const sw = e.type === 'fry' || e.type === 'baby' || e.type === 'fish' ? 1 : 0;   // a little scatter so a swarm reads as many small things, not one mass
-        put(e.type, e.x + Math.cos(e.ph * 7) * 0.2 * sw, lift, e.z + 0.02 + Math.sin(e.ph * 5) * 0.14 * sw, 1 + 0.07 * (0.5 - hop), 1 - 0.09 * (0.5 - hop), e.hx > 0.35 ? -1 : 1, e.blocked > 0 ? 9 : e.lit > 0 ? 2.4 : e.stun > 0 ? 1.6 : 1);
+        put(e.type, e.x + Math.cos(e.ph * 7) * 0.2 * sw, lift, e.z + 0.02 + Math.sin(e.ph * 5) * 0.14 * sw, 1 + 0.07 * (0.5 - hop), 1 - 0.09 * (0.5 - hop), e.hx > 0.35 ? -1 : 1, e.blocked > 0 ? 9 : e.lit > 0 ? 2.4 : e.stun > 0 ? 1.6 : e.z > 4.2 ? 1.6 : 1);   // still in the water: rim and eyes a little brighter so they read against the waves
         if ((e.type === 'turtle' || e.type === 'boss') && nb < bars.length) { const b = bars[nb++], k = clamp(e.hp / e.max), w = Math.min(2.2, K.h * 0.9); b.g.visible = true; b.g.position.set(e.x, K.h + 0.22, e.z); b.g.quaternion.copy(camera.quaternion); b.g.scale.set(w, 1, 1); b.bf.scale.x = Math.max(0.001, k * 0.98); b.bf.position.x = -(1 - k) * 0.49; } } }
     for (; nb < bars.length; nb++) bars[nb].g.visible = false;
     for (let i = ghosts.length - 1; i >= 0; i--) { const g = ghosts[i], K = kinds[g.kind]; g.t += dt; const big = ENEMY_BIG[g.kind], T1 = big ? 0.28 : 0.16, k = Math.sin(clamp(g.t / 0.1) * Math.PI * 0.5);   // squash, edge flashes white, pop + scraps

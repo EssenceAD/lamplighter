@@ -5,7 +5,7 @@ import { createHarbour } from './harbour.js';
 import * as audio from './audio.js';
 import * as net from './net.js';
 
-export const VERSION = '2.0.2';
+export const VERSION = '2.0.3';
 const Q = new URLSearchParams(location.search), DEBUG = Q.has('debug'), AUTO = Q.has('auto');
 const $ = (s, el = document) => el.querySelector(s), ui = $('#ui'), frame = $('#frame');
 const h = html => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
