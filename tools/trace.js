@@ -13,7 +13,7 @@ const MAP = {
   house_a: ['houses_0', 12], house_b: ['houses_2', 12], house_c: ['houses_4', 12],
   house_d: ['houses_5', 12], house_e: ['houses_6', 12],
   tower: ['tower_0', 10],
-  monster_a: ['monsters2_5', 40], monster_b: ['monsters2_4', 40], monster_c: ['monster_horned', 40],
+  monster_a: ['monster_cut_a', 40], monster_b: ['monster_cut_b', 40], monster_c: ['monster_cut_c', 40],
   tree_a: ['props_0', 30], tree_b: ['props_2', 30], tree_c: ['props_7', 30], tree_d: ['props_10', 30],
   bush: ['props_5', 30], well: ['props_4', 14], fence: ['props_8', 14],
   moon: ['scenery_1', 20], cloud_a: ['scenery_0', 20], cloud_b: ['scenery_3', 20],

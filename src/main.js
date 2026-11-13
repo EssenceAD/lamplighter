@@ -154,7 +154,7 @@ const M = {
   prop: paperMat(0x24284a, 0x3a3048), monster: paperMat(0x0d0c18, 0x15101c),
   hill1: paperMat(0x232b58, 0x5f4a70), hill2: paperMat(0x2c376c, 0x8a6585),
   hill3: paperMat(0x36447f, 0xb07f8e), ridge: paperMat(0x41528f, 0xd29a92),
-  front: paperMat(0x11152c, 0x2a2238), cloud: paperMat(0x1d2550, 0x7a5a78),
+  front: paperMat(0x11152c, 0x2a2238), cloud: paperMat(0x26326e, 0x8a6480),
   ground: paperMat(0x3c4879, 0x9a7f95), path: paperMat(0x8d8a9e, 0xf3d6b4),
 };
 M.ground.normalMap = paperCreaseN; M.ground.normalScale.set(1.3, 1.3);
@@ -233,11 +233,11 @@ back('hill_grass', -9.5, 1.9, M.hill1, 0, 0.5, 0.55);
 back('hill_pines', -11.0, 2.1, M.hill2, 0.45, -1.0, 0.68);
 back('hill_far', -12.5, 1.6, M.hill3, 1.15, 1.5, 0.85);
 back('ridge', -14.0, 3.0, M.ridge, 1.3, -0.5, 0.72);
-// clouds: dark cut paper with a rim that catches the moon
-const cloudRim = dawnTint(new THREE.MeshBasicMaterial({ color: 0xffffff }), new THREE.Color(0.62, 0.72, 1.0), new THREE.Color(1.0, 0.78, 0.62));
+// clouds: flat cut paper, a shade off the sky, with only a faint moonlit edge
+const cloudRim = dawnTint(new THREE.MeshBasicMaterial({ color: 0xffffff }), new THREE.Color(0.10, 0.14, 0.34), new THREE.Color(0.80, 0.52, 0.46));
 const mkCloud = (n, z, h, y, x) => {
-  const g = back(n, z, h, M.cloud, y, x, 1, { core: cloudRim, fr0: 11, fr1: 4, step: 6, receive: false });
-  g.userData.fringe.position.x -= 0.022; g.userData.fringe.position.y += 0.026; // thicker on the moon side
+  const g = back(n, z, h, M.cloud, y, x, 1, { core: cloudRim, fr0: 2, fr1: 2, step: 6, receive: false });
+  g.userData.fringe.position.x -= 0.012; g.userData.fringe.position.y += 0.014; // a sliver of moonlight on the moon side only
   return g;
 };
 const cloudA = mkCloud('cloud_a', -15.2, 0.75, 4.05, -2.9);
@@ -392,23 +392,37 @@ function ember(p, v, birth, life, size, buoy, col, converge = 0) {
 }
 function clearEmbers() { eData.fill(0); for (let i = 0; i < EMAX; i++) eData[i * 4] = -999; eGeo.attributes.aData.needsUpdate = true; }
 
-// ---------- paper scraps: a few cream and amber chips that pop, spin and fall ----------
+// ---------- paper scraps: vermilion, amber and cream chips with a thin ink edge ----------
+// They kick outwards first, then flutter down; the ink edge keeps them readable on bright light.
 const SMAX = 40;
-const chip = new THREE.Shape([[-0.5, -0.32], [0.36, -0.5], [0.5, 0.1], [0.08, 0.5], [-0.42, 0.28]].map(p => new THREE.Vector2(p[0], p[1])));
-const scraps = new THREE.InstancedMesh(new THREE.ShapeGeometry(chip), new THREE.MeshBasicMaterial({ map: paperW, side: THREE.DoubleSide }), SMAX); // unlit so cream stays cream
+const chipPts = [[-0.5, -0.32], [0.36, -0.5], [0.5, 0.1], [0.08, 0.5], [-0.42, 0.28]];
+const chipGeo = new THREE.BufferGeometry();
+{
+  const pos = [], col = [];
+  const fan = (k, z, c) => { for (let i = 1; i < chipPts.length - 1; i++) for (const p of [chipPts[0], chipPts[i], chipPts[i + 1]]) { pos.push(p[0] * k, p[1] * k, z); col.push(c, c, c); } };
+  fan(1, 0, 0.06); fan(0.78, 0.03, 1); fan(0.78, -0.03, 1);      // ink sheet, colour on both faces
+  chipGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); chipGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+}
+const scraps = new THREE.InstancedMesh(chipGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }), SMAX); // unlit so the colours stay true
 scraps.frustumCulled = false; scene.add(scraps);
 const scrapData = []; let sHead = 0;
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
-const G = 9.0;
+const CHIP_COLS = [[1.0, 0.27, 0.12], [1.0, 0.62, 0.16], [0.99, 0.92, 0.74]]; // vermilion, amber, cream
+function scrapPos(d, t, out) {
+  const k = 1 - Math.exp(-13 * t), f = Math.max(0, t - 0.2), drop = d.fall * (f - (1 - Math.exp(-3 * f)) / 3), sw = Math.min(1, f * 2) * d.sway;
+  return out.set(d.o.x + d.dir.x * d.R * k + Math.sin(f * 4.5 + d.ph) * sw, d.o.y + d.dir.y * d.R * k - drop, d.o.z + d.dir.z * d.R * k + Math.cos(f * 3.1 + d.ph) * sw * 0.4);
+}
 function burst(pos, T0, seed, H) {
   const r = rng(seed), n = 10;
+  const dist = camera.position.distanceTo(pos), unitPerPx = 2 * dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / innerHeight;
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * 6.283 + r() * 0.5, sp = 1.6 + r() * 1.8;
-    const o = pos.clone().add(new THREE.Vector3((r() - 0.5) * 0.5 * H, H * (0.3 + r() * 0.5), 0.06 + r() * 0.1));
-    const v = new THREE.Vector3(Math.cos(a) * sp, 2.6 + r() * 2.6 + Math.sin(a) * 0.8, 0.4 + r() * 1.4);
-    const land = (v.y + Math.sqrt(v.y * v.y + 2 * G * (o.y - 0.04))) / G;
-    scrapData[sHead] = { o, v, birth: T0, land, size: 0.16 + r() * 0.13, rot: [r() * 6, r() * 6, r() * 6], w: [(r() - 0.5) * 16, (r() - 0.5) * 16, (r() - 0.5) * 12], yaw: r() * 6.283 };
-    scraps.setColorAt(sHead, r() < 0.5 ? _c.setRGB(0.98, 0.9, 0.7) : _c.setRGB(1.0, 0.6, 0.17)); // cream / amber
+    const a = (i / n) * 6.283 + r() * 0.5;
+    const d = { o: pos.clone().add(new THREE.Vector3(0, H * 0.5, 0.12)), dir: new THREE.Vector3(Math.cos(a), Math.sin(a) * 0.8 + 0.35, 0.15 + r() * 0.5).normalize(),
+      R: H * (0.75 + r() * 0.7), fall: 1.15 + r() * 0.7, sway: 0.1 + r() * 0.16, ph: r() * 6.283, birth: T0,
+      size: (14 + r() * 5) * unitPerPx, rot: [r() * 6, r() * 6, r() * 6], w: [(r() - 0.5) * 30, (r() - 0.5) * 30, (r() - 0.5) * 20], yaw: r() * 6.283 };
+    let t = 0.2; while (t < 6 && scrapPos(d, t, _v).y > 0.045) t += 0.02; d.land = t;
+    scrapData[sHead] = d;
+    const c = CHIP_COLS[i % 3]; scraps.setColorAt(sHead, _c.setRGB(c[0], c[1], c[2]));
     sHead = (sHead + 1) % SMAX;
   }
   scraps.instanceColor.needsUpdate = true;
@@ -422,13 +436,13 @@ function updateScraps(T) {
   for (let i = 0; i < SMAX; i++) {
     const d = scrapData[i];
     if (d) {
-      const age = T - d.birth, rest = 1.6, fade = 0.7;
+      const age = T - d.birth, rest = 1.5, fade = 0.6;
       if (age >= 0 && age < d.land + rest + fade) {
-        const t = Math.min(age, d.land);
-        _v.set(d.o.x + d.v.x * t, Math.max(0.04, d.o.y + d.v.y * t - 0.5 * G * t * t), d.o.z + d.v.z * t);
-        _e.set(d.rot[0] + d.w[0] * t, d.rot[1] + d.w[1] * t, d.rot[2] + d.w[2] * t); _q.setFromEuler(_e);
-        if (age > d.land) { _e.set(-Math.PI / 2, 0, d.yaw); _q2.setFromEuler(_e); _q.slerp(_q2, sstep(0, 0.12, age - d.land)); _v.y = 0.04 + (i % 5) * 0.002; }
-        const s = d.size * sstep(0, 0.05, age) * (1 - sstep(d.land + rest, d.land + rest + fade, age));
+        const t = Math.min(age, d.land), f = Math.max(0, t - 0.2), sp = (1 - Math.exp(-6 * t)) / 6, fl = Math.min(1, f * 3);
+        scrapPos(d, t, _v);
+        _e.set(d.rot[0] + d.w[0] * sp + Math.sin(f * 8 + d.ph) * 0.9 * fl, d.rot[1] + d.w[1] * sp, d.rot[2] + d.w[2] * sp + Math.sin(f * 6 + d.ph * 2) * 0.7 * fl); _q.setFromEuler(_e);
+        if (age > d.land) { _e.set(-Math.PI / 2, 0, d.yaw); _q2.setFromEuler(_e); _q.slerp(_q2, sstep(0, 0.15, age - d.land)); _v.y = 0.045 + (i % 5) * 0.003; }
+        const s = d.size * sstep(0, 0.04, age) * (1 - sstep(d.land + rest, d.land + rest + fade, age));
         _m.compose(_v, _q, _s.set(s, s, s)); scraps.setMatrixAt(i, _m); continue;
       }
     }
@@ -441,9 +455,9 @@ function updateScraps(T) {
 // Round lumps with a cold violet rim so the shape reads even in greyscale. They move, so
 // they stay out of the baked shadow map: their shadow is the silhouette itself, projected
 // from the lantern onto the ground.
-const EYE = new THREE.Color(1.0, 0.94, 0.72);
+const EYE = new THREE.Color(1.35, 0.7, 0.16);   // amber light behind the eye holes
 const pupilMat = new THREE.MeshBasicMaterial({ color: 0x08070f });
-const RIM = new THREE.Color(0.6, 0.5, 1.0), WHITE = new THREE.Color(1.25, 1.25, 1.25);
+const RIM = new THREE.Color(0.6, 0.5, 1.0), WHITE = new THREE.Color(1.6, 1.6, 1.6);
 const castMat = new THREE.ShaderMaterial({
   uniforms: { uL: { value: LANTERN }, uDir: { value: new THREE.Vector3(0, -1, 0) }, uCone: { value: 0.9 }, uPen: { value: 0.95 }, uA: { value: 1 } },
   transparent: true, depthWrite: false, side: THREE.DoubleSide,
@@ -452,23 +466,34 @@ const castMat = new THREE.ShaderMaterial({
   fragmentShader: `uniform vec3 uL, uDir; uniform float uCone, uPen, uA; varying vec3 vW;
     void main(){ float k = smoothstep(uCone, uPen, dot(normalize(vW - uL), uDir)); gl_FragColor = vec4(0.015, 0.02, 0.06, uA * mix(0.34, 0.88, k)); }`,
 });
+const popMat = new THREE.ShaderMaterial({
+  uniforms: { uR: { value: 0 }, uI: { value: 0 }, uW: { value: 0.05 } },
+  transparent: true, depthWrite: false, depthTest: false,
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
+  fragmentShader: `uniform float uR, uI, uW; varying vec2 vUv;
+    void main(){ float r = length(vUv - 0.5) * 2.0; float e = 0.012;
+      float a = smoothstep(uR - uW - e, uR - uW, r) * (1.0 - smoothstep(uR, uR + e, r)) * uI;
+      gl_FragColor = vec4(vec3(1.0, 0.97, 0.88), a); }`,
+});
+const MH = [1.4, 1.3, 1.45];
 const monsters = [
-  { shape: 'monster_a', h: 1.39, u0: 0.255, v: 0.035, hit: 7.0 },
-  { shape: 'monster_b', h: 1.26, u0: 0.0125, v: 0.035, hit: 10.5 },
-  { shape: 'monster_c', h: 1.48, u0: -0.196, v: 0.048, hit: 99, stop: 17.0 },
+  { shape: 'monster_a', h: MH[0], u0: 0.255, v: 0.035, hit: 7.0 },
+  { shape: 'monster_b', h: MH[1], u0: 0.0125, v: 0.035, hit: 10.5 },
+  { shape: 'monster_c', h: MH[2], u0: -0.196, v: 0.048, hit: 99, stop: 17.0 },
 ].map((d, i) => {
   const rim = new THREE.MeshBasicMaterial({ color: RIM.clone() });
-  const body = cutout(d.shape, { height: d.h, mat: M.monster, core: rim, step: 5, rough: 1.1, depth: 0.025, fr0: 11, fr1: 3, holeFringe: false, cast: false, receive: false });
-  const eyes = body.userData.holes.filter(h => h.pw > 50 && h.ph > 50);
+  const body = cutout(d.shape, { height: d.h, mat: M.monster, core: rim, step: 22, rough: 3.2, depth: 0.025, fr0: 11, fr1: 2, holeFringe: false, cast: false, receive: false }); // long straight snips, no fuzz
+  const eyes = body.userData.holes.filter(h => h.pw > 24 && h.ph > 14).sort((a, b) => b.w * b.h - a.w * a.h).slice(0, 2);
   const eyeMat = new THREE.MeshBasicMaterial({ color: EYE.clone() });
   const pupils = [];
   for (const h of eyes) {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(h.w + 0.05, h.h + 0.05), eyeMat); p.position.set(h.x, h.y, -0.03); body.add(p);
-    const q = new THREE.Mesh(new THREE.CircleGeometry(Math.min(h.w, h.h) * 0.27, 20), pupilMat); q.position.set(h.x, h.y, -0.015); q.userData.home = [h.x, h.y, Math.min(h.w, h.h)]; body.add(q); pupils.push(q);
+    const q = new THREE.Mesh(new THREE.CircleGeometry(Math.min(h.w, h.h) * 0.42, 16), pupilMat); q.position.set(h.x, h.y, -0.015); q.userData.home = [h.x, h.y, Math.min(h.w, h.h)]; body.add(q); pupils.push(q);
   }
-  const cast = new THREE.Mesh(new THREE.ShapeGeometry(body.userData.outline, 1), castMat); cast.frustumCulled = false; cast.renderOrder = 2; body.add(cast);
+  const cast = new THREE.Mesh(new THREE.ShapeGeometry(body.userData.outline.map(s => new THREE.Shape(s.getPoints())), 1), castMat); // solid: no eye holes in the shadow cast.frustumCulled = false; cast.renderOrder = 2; body.add(cast);
+  const pop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), popMat.clone()); pop.visible = false; pop.renderOrder = 8; scene.add(pop); // the little pop ring
   const g = new THREE.Group(); g.add(body); scene.add(g);
-  return { ...d, i, g, body, H: d.h, pupils, rim, pos: new THREE.Vector3() };
+  return { ...d, i, g, body, H: d.h, pupils, rim, pop, fringe: body.userData.fringe, pos: new THREE.Vector3() };
 });
 const FLASH_T = 19.0, WAVE_V = 8.0;
 { // the third one is taken by the shock wave, when the ring reaches it
@@ -547,11 +572,12 @@ const CAPS = [[0, '밤 · 종이 그림자극 마을'], [3, '빛줄기 · 원뿔
   [10.4, '명중'], [12.8, '창문 꺼짐 · 세 번 깜빡 → 연기 한 줄'], [16.8, '섬광 · 어두워지며 모임'], [19, '충격파 → 종이 흔들림 → 잔광'], [24, '동틀 녘 · 남색 → 복숭아빛'], [35.6, '']];
 if (!DEBUG) cap.style.display = 'none';
 let events = [], freeze = 0;
+const BURST = 0.28;
 function buildEvents() {
   events = [];
   for (const m of monsters) {
-    events.push({ t: m.hit + 0.2, fn: live => { if (live) freeze = 0.05; } });          // 0.05 s hit-stop
-    events.push({ t: m.hit + 0.26, fn: () => burst(m.pos, m.hit + 0.26, 100 + m.i * 31, m.H) });
+    events.push({ t: m.hit + 0.22, fn: live => { if (live) freeze = 0.05; } });          // 0.05 s hit-stop
+    events.push({ t: m.hit + BURST, fn: () => burst(m.pos, m.hit + BURST, 100 + m.i * 31, m.H) });
   }
   events.push({ t: 16.9, fn: () => { // motes gather into the lantern
     const r = rng(77);
@@ -592,21 +618,26 @@ function update(T, dtReal) {
     const tau = T - m.hit;
     pathAt(u, m.pos);
     if (tau > -0.25 && tau < 2.6) hitWin = Math.max(hitWin, sstep(-0.25, -0.05, tau) * (1 - sstep(2.0, 2.6, tau)));
-    const alive = u > 0 && tau < 0.26;
+    const alive = u > 0 && tau < BURST;
+    const tb = tau - BURST;                                           // pop ring, right as it bursts
+    m.pop.visible = tb >= 0 && tb < 0.34;
+    if (m.pop.visible) { const k = 1 - Math.pow(1 - tb / 0.34, 3); m.pop.position.set(m.pos.x, m.H * 0.5, m.pos.z + 0.2); m.pop.quaternion.copy(camera.quaternion); m.pop.scale.setScalar(m.H * 1.7);
+      m.pop.material.uniforms.uR.value = 0.18 + 0.8 * k; m.pop.material.uniforms.uI.value = 1 - sstep(0.5, 1, tb / 0.34); m.pop.material.uniforms.uW.value = 0.09 * (1 - 0.6 * k); }
     m.g.visible = alive; if (!alive) continue;
     const walking = T < Math.min(m.stop ?? 1e9, m.hit);
     const ph = T * 6.4 + m.i * 2.1, hop = walking ? Math.abs(Math.sin(ph)) : 0;
     let sx = 1 + 0.07 * (0.5 - hop), syy = 1 - 0.09 * (0.5 - hop), rz = walking ? Math.sin(ph) * 0.06 : Math.sin(T * 2) * 0.02;
     if (!walking && tau < 0) { const fear = sstep(17, 18.8, T); sx *= 1 - 0.05 * fear + Math.sin(T * 38) * 0.012 * fear; syy *= 1 + 0.08 * fear; } // it freezes and stares
-    if (tau >= 0) { const k = Math.sin(clamp(tau / 0.18) * Math.PI * 0.5); sx *= 1 + 0.42 * k; syy *= 1 - 0.46 * k; rz = 0; }               // squash
+    if (tau >= 0) { const k = Math.sin(clamp(tau / 0.1) * Math.PI * 0.5); sx *= 1 + 0.42 * k; syy *= 1 - 0.46 * k; rz = 0; }   // in by 0.1 s, then held               // squash
     m.g.position.set(m.pos.x, hop * 0.1, m.pos.z + 0.02);
     m.body.scale.set(sx, syy, 1); m.body.rotation.z = rz;
-    m.rim.color.copy(tau >= 0.18 && tau < 0.26 ? WHITE : RIM);        // only the edge flashes white, for 0.08 s
+    const fl = tau >= 0.2 && tau < BURST;                             // only the edge flashes white (0.08 s + the hit-stop)
+    m.rim.color.copy(fl ? WHITE : RIM); m.fringe.scale.setScalar(fl ? 1.07 : 1); m.fringe.position.y = fl ? -0.035 * m.H : 0;
     const blink = (Math.sin(T * 1.3 + m.i * 2.3) > 0.985) ? 1 : 0;
     for (const p of m.pupils) {
       const [hx, hy, hs] = p.userData.home; const dx = clamp((LANTERN.x - m.pos.x) * 0.25, -1, 1);
       p.position.x = hx + dx * hs * 0.16; p.position.y = hy + hs * 0.03;
-      const s = blink ? 2.2 : (tau >= 0 ? 0.45 : 1 + 0.25 * gather); p.scale.set(s, s, 1);
+      const s = blink ? 3 : (tau >= 0 ? 0.6 : 1 + 0.2 * gather); p.scale.set(blink ? 3 : s * 0.32, s, 1);   // slit pupil
     }
   }
 
@@ -619,7 +650,7 @@ function update(T, dtReal) {
   else _aim.set(Math.sin(T * 0.42 + 0.6) * 2.5, 0, -1.2 + Math.sin(T * 0.27 + 2.0) * 2.6);
   _aim.y = 0;
   if (dtReal > 0.5) beamAim.copy(_aim); else beamAim.lerp(_aim, 1 - Math.exp(-dtReal * (lock ? 2.2 : 0.9)));
-  const hitPulse = Math.max(...monsters.map(m => { const t = T - m.hit; return t > -0.5 && t < 0.4 ? sstep(-0.5, 0, t) * (1 - sstep(0.26, 0.4, t)) : 0; }));
+  const hitPulse = Math.max(...monsters.map(m => { const t = T - m.hit; return t > -0.5 && t < 0.45 ? sstep(-0.5, 0, t) * (1 - sstep(BURST, 0.45, t)) : 0; }));
   const lampOn = 1 - sstep(25, 31, T);                                 // the lamp burns down at dawn
   const bI = (1 - 0.55 * gather) * (tf >= 0 ? sstep(0.6, 2.2, tf) : 1) * (1 - sstep(23.3, 24.4, T)) * (0.9 + 0.1 * Math.sin(ti * 1.7)) * (1 + 0.5 * hitPulse);
   const flick = 0.94 + 0.06 * Math.sin(ti * 9.1) * Math.sin(ti * 5.3);
