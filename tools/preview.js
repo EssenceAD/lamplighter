@@ -1,0 +1,1 @@
+const Jimp=require('jimp');(async()=>{for(const f of process.argv.slice(2)){const i=await Jimp.read(f);console.log(f,i.bitmap.width,i.bitmap.height);i.resize(700,Jimp.AUTO).quality(80).write(f.replace(/\.png$/,'.prev.jpg'));}})();

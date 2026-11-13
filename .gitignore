@@ -1,0 +1,6 @@
+dl/
+node_modules/
+*.prev.jpg
+.claude/
+ref/parts/
+ref/monsters.png
