@@ -79,7 +79,7 @@
   #flash.ready .lampbody { fill: #2a1a12; stroke: #ffd08a; } #flash.ready { animation: sway 1.2s ease-in-out infinite; }
   #flash em { position: absolute; bottom: 9px; left: 0; right: 0; text-align: center; font: 800 16px "Hahmlet", serif; color: var(--paper); font-style: normal; }
   @keyframes sway { 50% { transform: rotate(-3deg) scale(1.04); } }
-  #tip { position: absolute; left: 10px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 72px); transform: rotate(-1deg); max-width: calc(100% - 136px); word-break: keep-all; padding: 13px 20px 14px; font-size: 17px; text-align: center; pointer-events: none; transition: opacity .5s; animation: drop .3s ease-out; }
+  #tip { position: absolute; left: 10px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 104px); transform: rotate(-1deg); max-width: calc(100% - 24px); word-break: keep-all; padding: 13px 20px 14px; font-size: 17px; text-align: center; pointer-events: none; transition: opacity .5s; animation: drop .3s ease-out; }
   @keyframes drop { from { transform: translateY(22px) rotate(-4deg); opacity: 0; } }
   /* round build menu: paper tokens */
   #menu { position: absolute; inset: 0; pointer-events: none; }
@@ -127,6 +127,15 @@
   .mt { padding: 0; } .mtp { padding: 7px 16px; }
   .mi.lift { display: block; } .mi > .paper { display: grid; }
   #update { padding: 0; } #call .lift { display: block; }
+  /* 3.0: the keeper's portrait and the two spells along the bottom, as paper tokens with a shade that drains while they recharge */
+  #hud .bottom { gap: 7px; }
+  .sk { width: 62px; position: relative; display: block; flex: none; } .sk > .paper { width: 62px; height: 62px; display: grid; place-items: center; position: relative; overflow: hidden; padding: 0; }
+  .sk svg.ic { width: 42px; height: 42px; } .sk .veil2 { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(24, 16, 34, .66); pointer-events: none; }
+  .sk em { display: block; text-align: center; font: 800 15px "Hahmlet", serif; font-style: normal; color: var(--paper); text-shadow: 0 1px 3px #000, 0 0 6px #000; margin-top: 3px; white-space: nowrap; }
+  .sk.on > .paper { background-color: #f6b455; } .sk.down > .paper { background-color: #9a9080; }
+  #sk-hero > .paper::after { content: ""; position: absolute; left: 7px; right: 7px; bottom: 6px; height: 5px; background: linear-gradient(90deg, #4f8a3e calc(var(--hp, 1) * 100%), #3a2a2a 0); }
+  .mi.sel > .paper { background-color: #f6b455; } #call .btn { white-space: nowrap; }
+  @media (max-width: 400px) { #hud .bottom { gap: 5px; left: 6px; right: 6px; } .sk { width: 56px; } .sk > .paper { width: 56px; height: 56px; } .sk em { letter-spacing: -.06em; } #call .btn { padding: 10px 9px; } #hud .bottom .tab { width: 44px; } }
 </style>
 <script type="importmap">
 { "imports": {

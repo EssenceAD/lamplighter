@@ -1,4 +1,4 @@
-// 등불지기 2.0 — the harbour stage (three.js): lighthouse on its cliff, village under it, the sea as
+// 등불지기 3.0 — the harbour stage (three.js): lighthouse on its crag, village at the top, the sea as
 // layers of rocking paper strips in front. Same look rules as the approved look-dev scene: one
 // shadow-casting light, night shadows baked once, capped bloom, automatic resolution scaling.
 // Enemies are drawn with instancing (one draw call per kind, plus one for their projected shadows).
@@ -9,18 +9,21 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { clamp, rng, WAVE_V, LANES, SLOTS, TOWER, BUILDS } from './game.js';
+import { clamp, rng, LANES, SLOTS, TOWER, TOWERS, TOWER_ORDER } from './game.js';
+const WAVE_V = 8;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
-// silhouette, height on stage, round amber eyes (fractions of the outline box), eye size
+// silhouette, height on stage, round amber eyes (fractions of the outline box), eye size, kind of piece
+// Enemies are about a tenth of the screen wide; the boss a quarter. Villagers carry a warm rim instead of the cold one.
 const LOOK = {
-  fry: ['e_fry', 0.7, [[0.36, 0.3], [0.66, 0.3]], 0.095], fish: ['e_fish', 0.7, [[0.74, 0.5]], 0.11], crab: ['e_crab', 1.0, [[0.42, 0.42], [0.6, 0.42]], 0.08],
-  octo: ['e_octo', 1.2, [[0.4, 0.3], [0.62, 0.3]], 0.08], baby: ['e_octo', 0.58, [[0.4, 0.3], [0.62, 0.3]], 0.095], fog: ['cloud_b', 1.1, [[0.4, 0.55], [0.6, 0.55]], 0.1],
-  turtle: ['e_turtle', 1.3, [[0.86, 0.3]], 0.075], boss: ['e_boss', 3.0, [[0.2, 0.36], [0.42, 0.36]], 0.035],
+  fry: ['e_fry', 0.88, [[0.36, 0.3], [0.66, 0.3]], 0.095], fish: ['e_fish', 0.9, [[0.74, 0.5]], 0.11], crab: ['e_crab', 0.83, [[0.42, 0.42], [0.6, 0.42]], 0.08],
+  octo: ['e_octo', 0.92, [[0.4, 0.3], [0.62, 0.3]], 0.08], baby: ['e_octo', 0.55, [[0.4, 0.3], [0.62, 0.3]], 0.095], gull: ['gull', 1.05, [[0.665, 0.585]], 0.05],
+  turtle: ['e_turtle', 0.84, [[0.86, 0.3]], 0.075], boss: ['e_boss', 2.7, [[0.2, 0.36], [0.42, 0.36]], 0.035],
+  soldier: ['guard', 0.8, [[0.845, 0.33]], 0.085, 'ally'], villager: ['v_woman', 0.78, [], 0, 'ally'], hero: ['v_old', 1.08, [], 0, 'ally'],
 };
-const CAP = { fry: 1500, fish: 240, crab: 140, octo: 100, baby: 320, fog: 48, turtle: 70, boss: 4 };
-const TOOL_SHAPE = { mirror: ['t_mirror', 1.05], prism: ['t_prism', 0.85], lens: ['t_lens', 1.15], bell: ['t_bell', 1.2], beacon: ['t_beacon', 1.25], jar: ['t_jar', 0.7] };
+const CAP = { fry: 70, fish: 70, crab: 40, octo: 30, baby: 70, gull: 16, turtle: 20, boss: 2, soldier: 40, villager: 14, hero: 2 };
+const TOOL_SHAPE = { archer: ['watch', 1.5], barracks: ['hut', 1.05], lens: ['t_lens', 1.2], beacon: ['t_beacon', 1.3] };
 
 export async function createHarbour(frame, SHAPES) {
   const SPOT_FLOOR = { value: 0.05 }, GRAIN = { value: 5.0 };
@@ -79,7 +82,7 @@ export async function createHarbour(frame, SHAPES) {
   const M = { house: paperMat(0x2b2f55, 0x3a2f4a), house2: paperMat(0x33294f, 0x44304a), tower: paperMat(0x2a2440, 0x3b2a44), tree: paperMat(0x1c2c44, 0x2e3350), prop: paperMat(0x24284a, 0x3a3048),
     cliff: paperMat(0x2c3663, 0x5a4660), cliff2: paperMat(0x3a4678, 0x6e556c), far0: paperMat(0x232b58, 0x5f4a70), far1: paperMat(0x2c376c, 0x8a6585), far2: paperMat(0x36447f, 0xb07f8e),
     sea: [paperMat(0x3f72b2, 0xe2b0a6), paperMat(0x3462a0, 0xcf9c9e), paperMat(0x2a538c, 0xb98a98), paperMat(0x214477, 0xa07890), paperMat(0x193661, 0x886a88), paperMat(0x12284c, 0x705a7e), paperMat(0x0d1f3d, 0x5e4c70)], seaFloor: paperMat(0x0d1f3d, 0x5e4c70),
-    cloud: paperMat(0x26326e, 0x8a6480), ground: paperMat(0x3c4879, 0x9a7f95), path: paperMat(0x8d8a9e, 0xf3d6b4), slot: paperMat(0x6f759c, 0xcbb0a4) };
+    cloud: paperMat(0x26326e, 0x8a6480), ground: paperMat(0x3c4879, 0x9a7f95), path: paperMat(0xb4acc0, 0xf3d6b4), slot: paperMat(0x6f759c, 0xcbb0a4) };
   M.ground.normalMap = paperCreaseN; M.ground.normalScale.set(1.3, 1.3);
 
   // ---------- scenery ----------
@@ -212,29 +215,30 @@ export async function createHarbour(frame, SHAPES) {
 
   // ---------- enemies: one instanced mesh per kind (rim + body + round amber eyes in one geometry) ----------
   const castMat = new THREE.ShaderMaterial({ uniforms: { uL: { value: LANTERN }, uDir: { value: new THREE.Vector3(0, -1, 0) }, uCone: { value: 0.9 }, uPen: { value: 0.95 }, uA: { value: 1 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: `uniform vec3 uL; varying vec3 vW; void main(){ vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); float t = min(6.0, (uL.y - 0.035) / max(0.3, uL.y - w.y)); vW = uL + (w.xyz - uL) * t; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
+    vertexShader: `uniform vec3 uL; varying vec3 vW; void main(){ vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); float t = min(1.9, (uL.y - 0.035) / max(0.3, uL.y - w.y)); vW = uL + (w.xyz - uL) * t; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
     fragmentShader: `uniform vec3 uL, uDir; uniform float uCone, uPen, uA; varying vec3 vW; void main(){ vec3 d = vW - uL; float k = smoothstep(uCone, uPen, dot(d / max(length(d), 0.001), uDir)); gl_FragColor = vec4(0.015, 0.02, 0.06, clamp(uA * mix(0.3, 0.85, k), 0.0, 1.0)); }` });
   const kinds = {};
-  for (const [kind, [shape, h, eyes, er]] of Object.entries(LOOK)) {
-    const O = outline(shape, { height: h, step: 20, rough: 2.6, fr0: kind === 'boss' ? 7 : 12, fr1: 2, solid: true }), S = SHAPES[shape], pos = [], col = [];
+  for (const [kind, [shape, h, eyes, er, ally]] of Object.entries(LOOK)) {
+    const O = outline(shape, { height: h, step: ally ? 14 : 20, rough: ally ? 1.6 : 2.6, fr0: kind === 'boss' ? 7 : ally ? 9 : 12, fr1: 2, solid: true }), S = SHAPES[shape], pos = [], col = [];
     const add = (geo, z, c) => { const g = geo.toNonIndexed(), p = g.attributes.position; for (let i = 0; i < p.count; i++) { pos.push(p.getX(i), p.getY(i), z); col.push(c[0], c[1], c[2]); } };
-    const fogK = kind === 'fog';
-    add(new THREE.ShapeGeometry(O.fringe, 1), -0.006, fogK ? [0.5, 0.56, 0.8] : kind === 'turtle' ? [0.45, 0.85, 0.75] : kind === 'boss' ? [1.0, 0.45, 0.6] : [0.6, 0.5, 1.0]);
-    const flat = new THREE.ShapeGeometry(O.main, 1); add(flat, 0, fogK ? [0.2, 0.24, 0.42] : [0.028, 0.026, 0.05]);
+    add(new THREE.ShapeGeometry(O.fringe, 1), -0.006, ally ? [1.35, 0.95, 0.5] : kind === 'turtle' ? [0.45, 0.85, 0.75] : kind === 'boss' ? [1.0, 0.45, 0.6] : kind === 'gull' ? [0.7, 0.8, 1.0] : [0.6, 0.5, 1.0]);
+    const flat = new THREE.ShapeGeometry(O.main, 1); add(flat, 0, ally ? [0.24, 0.17, 0.11] : [0.028, 0.026, 0.05]);
     const disc = (cx, cy, r, c, z) => { for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283, b = (i + 1) / 14 * 6.283; pos.push(cx, cy, z, cx + Math.cos(a) * r, cy + Math.sin(a) * r, z, cx + Math.cos(b) * r, cy + Math.sin(b) * r, z); col.push(...c, ...c, ...c); } };
-    for (const [fx, fy] of eyes) { const x = (fx - 0.5) * S.w * O.k, y = (1 - fy) * h, r = Math.max(0.03, er * h * 1.15); disc(x, y, r, [1.25, 0.66, 0.16], 0.01); disc(x, y - r * 0.1, r * 0.42, [0.05, 0.04, 0.08], 0.012); disc(x + r * 0.22, y + r * 0.24, r * 0.17, [1.6, 1.5, 1.2], 0.014); }
+    for (const [fx, fy] of eyes) { const x = (fx - 0.5) * S.w * O.k, y = (1 - fy) * h, r = Math.max(0.03, er * h * 1.15); disc(x, y, r, [1.25, 0.66, 0.16], 0.01); if (ally) continue;   // a soldier's "eye" is the lantern he carries
+      disc(x, y - r * 0.1, r * 0.42, [0.05, 0.04, 0.08], 0.012); disc(x + r * 0.22, y + r * 0.24, r * 0.17, [1.6, 1.5, 1.2], 0.014); }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: fogK, opacity: fogK ? 0.55 : 1 }), CAP[kind]); mesh.frustumCulled = false; mesh.count = 0; mesh.renderOrder = fogK ? 3 : 0; scene.add(mesh);
+    const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true }), CAP[kind]); mesh.frustumCulled = false; mesh.count = 0; scene.add(mesh);
     mesh.setColorAt(0, _c.setRGB(1, 1, 1));
-    const cast = new THREE.InstancedMesh(flat, castMat, CAP[kind]); cast.frustumCulled = false; cast.count = 0; cast.renderOrder = 2; if (!fogK) scene.add(cast);
-    kinds[kind] = { mesh, cast, h, n: 0 };
+    const cast = new THREE.InstancedMesh(flat, castMat, CAP[kind]); cast.frustumCulled = false; cast.count = 0; cast.renderOrder = 2; scene.add(cast);
+    kinds[kind] = { mesh, cast, h, w: S.w * O.k, n: 0 };
   }
-  const ghosts = [], pops = [], popMeshes = [], bars = [];
+  const ghosts = [], pops = [], popMeshes = [];
+  const BARS = 220, barGeo = new THREE.PlaneGeometry(1, 1), barBack = new THREE.InstancedMesh(barGeo, new THREE.MeshBasicMaterial({ color: 0x0b0a14, depthTest: false, transparent: true }), BARS),
+    barFill = new THREE.InstancedMesh(barGeo, new THREE.MeshBasicMaterial({ depthTest: false, transparent: true }), BARS);
+  for (const b of [barBack, barFill]) { b.frustumCulled = false; b.count = 0; scene.add(b); } barBack.renderOrder = 10; barFill.renderOrder = 11; barFill.setColorAt(0, _c.setRGB(1, 1, 1));
   const popMat = new THREE.ShaderMaterial({ uniforms: { uR: { value: 0 }, uI: { value: 0 }, uW: { value: 0.05 }, uCol: { value: new THREE.Color(1, 0.97, 0.88) } }, transparent: true, depthWrite: false, depthTest: false, vertexShader: VS,
     fragmentShader: `uniform float uR, uI, uW; uniform vec3 uCol; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float e = 0.012; float a = smoothstep(uR - uW - e, uR - uW, r) * (1.0 - smoothstep(uR, uR + e, r)) * uI; gl_FragColor = vec4(uCol, a); }` });
   for (let i = 0; i < 28; i++) { const pm = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), popMat.clone()); pm.renderOrder = 8; pm.visible = false; scene.add(pm); popMeshes.push(pm); }
-  const barGeo = new THREE.PlaneGeometry(1, 1), barBack = new THREE.MeshBasicMaterial({ color: 0x0b0a14, depthTest: false, transparent: true }), barFill = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.7, 0.25), depthTest: false, transparent: true });
-  for (let i = 0; i < 40; i++) { const g = new THREE.Group(), bb = new THREE.Mesh(barGeo, barBack), bf = new THREE.Mesh(barGeo, barFill); bb.scale.set(1.04, 0.13, 1); bf.scale.set(1, 0.08, 1); bb.renderOrder = 10; bf.renderOrder = 11; g.add(bb, bf); g.visible = false; scene.add(g); bars.push({ g, bf }); }
 
   // ---------- what is built: paper stands, the light they pass on, fire, bells, lightning ----------
   const lightMat = () => new THREE.ShaderMaterial({ uniforms: { uCol: { value: new THREE.Color(1, 1, 1) }, uI: { value: 1 }, uMode: { value: 0 }, uTime: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexShader: VS,
@@ -243,25 +247,15 @@ export async function createHarbour(frame, SHAPES) {
       else if (uMode > 0.5) { float r = length(vUv - 0.5) * 2.0; a = smoothstep(1.0, 0.5, r); }
       else { float w = 1.0 - abs(vUv.x - 0.5) * 2.0; a = smoothstep(0.0, 0.5, w) * mix(1.0, 0.55, vUv.y) * smoothstep(0.0, 0.03, vUv.y) * (0.9 + 0.1 * sin(vUv.y * 40.0 - uTime * 8.0)); }
       gl_FragColor = vec4(uCol * a * uI, a * uI); }` });
-  const segGeo = new THREE.PlaneGeometry(1, 1); segGeo.translate(0, 0.5, 0); segGeo.rotateX(-Math.PI / 2);
-  const discGeo = new THREE.PlaneGeometry(2, 2); discGeo.rotateX(-Math.PI / 2);
-  const toolObjs = [], lightObjs = [], feedLines = [], zaps = [];
-  const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(1.6, 1.25, 0.7), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
-  const zapMat = new THREE.LineBasicMaterial({ color: new THREE.Color(1.6, 2.4, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
-  const DEPTH_COL = [[1, 0.56, 0.2], [1.0, 0.56, 0.2], [1.05, 0.64, 0.26], [1.1, 0.72, 0.33], [1.15, 0.8, 0.42], [1.2, 0.88, 0.52]];   // passed-on light stays amber; deeper chains only grow a little paler
+  const toolObjs = [], zaps = [];
+  const rayMat = new THREE.LineBasicMaterial({ color: new THREE.Color(1.9, 1.5, 0.8), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
   const pipGeo = new THREE.CircleGeometry(0.055, 8), pipMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.8, 0.3) }), pipMax = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.3, 0.5) });
   function syncTools(game) {
     const bornAt = new Map(toolObjs.map(o => [o.slot + o.type + o.lvl, o.born]));
-    for (const o of toolObjs) { scene.remove(o.g); o.glow?.dispose(); } toolObjs.length = 0; for (const o of lightObjs) { scene.remove(o); o.material.dispose(); } lightObjs.length = 0; for (const l of feedLines) { scene.remove(l); l.geometry.dispose(); } feedLines.length = 0;
-    game.tools.forEach((t, i) => { if (!t) return; const [shape, h] = TOOL_SHAPE[t.type], s = SLOTS[i], g = cutout(shape, { height: h * (1 + 0.09 * (t.lvl - 1)), mat: M.prop, step: 6, rough: 1.2, cast: false, receive: false });
-      const lit = !BUILDS[t.type].optic || t.depth > 0, glow = null;
+    for (const o of toolObjs) scene.remove(o.g); toolObjs.length = 0;
+    game.tools.forEach((t, i) => { if (!t) return; const [shape, h] = TOOL_SHAPE[t.type], s = SLOTS[i], g = cutout(shape, { height: h * (1 + 0.07 * (t.lvl - 1)), mat: M.prop, step: 6, rough: 1.2, cast: false, receive: false });
       for (let k = 0; k < t.lvl; k++) { const pip = new THREE.Mesh(pipGeo, t.lvl === 4 ? pipMax : pipMat); pip.position.set((k - (t.lvl - 1) / 2) * 0.15, g.userData.h + 0.14, 0.02); g.add(pip); }
-      g.position.set(s.x, 0, s.z + 0.05); scene.add(g); toolObjs.push({ g, glow, slot: i, type: t.type, lvl: t.lvl, lit, born: bornAt.get(i + t.type + t.lvl) ?? clock }); });
-    for (const i of game.feeds) { const s = SLOTS[i], g = new THREE.BufferGeometry().setFromPoints([LANTERN, new THREE.Vector3(s.x, TOOL_SHAPE[game.tools[i].type][1] * 0.75, s.z)]), l = new THREE.Line(g, lineMat); l.renderOrder = 6; scene.add(l); feedLines.push(l); }
-    for (const L of game.lights) { const t = game.tools[L.slot], m = new THREE.Mesh(L.kind === 'seg' || L.kind === 'link' ? segGeo : discGeo, lightMat()), u = m.material.uniforms, c = L.kind === 'fire' ? [1.3, 0.5, 0.12] : DEPTH_COL[L.depth || 1];
-      u.uCol.value.setRGB(c[0], c[1], c[2]); u.uMode.value = L.kind === 'fire' ? 2 : L.kind === 'disc' ? 1 : 0;
-      if (L.kind === 'seg' || L.kind === 'link') { m.position.set(L.x0, 0.04, L.z0); m.rotation.y = Math.atan2(-(L.x1 - L.x0), -(L.z1 - L.z0)); m.scale.set((L.hw || 0.2) * 2.6, 1, Math.hypot(L.x1 - L.x0, L.z1 - L.z0)); } else { m.position.set(L.x, 0.045, L.z); m.scale.set(L.r * 1.15, 1, L.r * 1.15); }
-      m.userData = { L, base: L.kind === 'link' ? 0.28 : L.kind === 'fire' ? 0.8 : L.kind === 'disc' ? 0.62 : 0.4 + 0.07 * (L.depth || 1) }; m.renderOrder = 3; scene.add(m); lightObjs.push(m); }
+      g.position.set(s.x, 0, s.z + 0.05); scene.add(g); toolObjs.push({ g, slot: i, type: t.type, lvl: t.lvl, h: g.userData.h, born: bornAt.get(i + t.type + t.lvl) ?? clock }); });
   }
   const ringMat = new THREE.ShaderMaterial({ uniforms: { uR: { value: 0 }, uI: { value: 0 }, uW: { value: 0.012 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexShader: VS,
     fragmentShader: `uniform float uR, uI, uW; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float e = 0.0012; float a = smoothstep(uR - uW - e, uR - uW, r) * (1.0 - smoothstep(uR, uR + e, r)) * uI; gl_FragColor = vec4(vec3(1.0, 0.86, 0.6) * a, a); }` });
@@ -290,16 +284,26 @@ export async function createHarbour(frame, SHAPES) {
   setShadowMode('dawn'); renderer.compile(scene, camera); setShadowMode('night'); renderer.compile(scene, camera);
 
   const st = { dawn: 0, dawnTarget: 0, gather: 0, flashT: -1, lost: 0, fade: 0, freeze: 0, lastStop: -9, slow: 0, fast: 0, fps: 60, fpsAcc: 0, fpsN: 0, sel: -1, alive: 0 };
-  const LOOKDEV = { POOL: 32, BEAM_MAX: 820, CONE: 1.15 }; let { POOL, BEAM_MAX, CONE } = LOOKDEV;
+  const LOOKDEV = { POOL: 24, BEAM_MAX: 820, CONE: 1.15 }; let { POOL, BEAM_MAX, CONE } = LOOKDEV;
   const beamAim = new THREE.Vector3(0, 0, -1), ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ndc = new THREE.Vector2(), ID = new THREE.Quaternion().setFromEuler(new THREE.Euler(LEAN, 0, 0));
   let frameNo = 0, shakeUntil = -1;
-  function reset(game) { ghosts.length = 0; pops.length = 0; for (let i = 0; i < scrapData.length; i++) scrapData[i] = null; Object.assign(st, { dawn: 0, dawnTarget: 0, flashT: -1, lost: 0, gather: 0, sel: -1 }); syncTools(game ?? { tools: [], lights: [], feeds: [] }); for (const z of zaps) { scene.remove(z.l); z.l.geometry.dispose(); } zaps.length = 0; bake = 2; }
+  function reset(game) { ghosts.length = 0; pops.length = 0; st.range = null; st.fx = TOWER.x; st.fz = TOWER.z; st.fr = 1.5; for (let i = 0; i < scrapData.length; i++) scrapData[i] = null; Object.assign(st, { dawn: 0, dawnTarget: 0, flashT: -1, lost: 0, gather: 0, sel: -1 }); syncTools(game ?? { tools: [], lights: [], feeds: [] }); for (const z of zaps) { scene.remove(z.l); z.l.geometry.dispose(); } zaps.length = 0; bake = 2; }
   function onEvent(e, game) {
-    if (e.type === 'kill') { ghosts.push({ kind: e.enemy, x: e.x, z: e.z, t: 0, shard: e.shard }); if (ENEMY_BIG[e.enemy] && clock - st.lastStop > 0.7) { st.lastStop = clock; st.freeze = 0.05; } }
-    else if (e.type === 'flash') { st.flashT = 0; shakeUntil = clock + 4; for (let i = 0; i < 60; i++) { const r = Math.random, a = r() * 6.283, el = (r() - 0.3) * 1.4, sp = 3 + r() * 7; ember(LANTERN.x, LANTERN.y, LANTERN.z, Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp * 0.6, Math.abs(Math.sin(a)) * Math.cos(el) * sp + 0.5, r() * 0.1, 0.8 + r() * 1.4, 0.14 + r() * 0.2, 0.5 + r(), [2.0, 1.2 + r() * 0.5, 0.35]); } }
-    else if (e.type === 'build' || e.type === 'upgrade' || e.type === 'sell' || e.type === 'rotate' || e.type === 'card') { if (game.dirty) game.relink(); syncTools(game); if (e.type === 'build' || e.type === 'upgrade') { const s = SLOTS[e.slot]; pops.push({ t: 0, x: s.x, y: 0.5, z: s.z + 0.2, s: 1.6, col: [1, 0.85, 0.5] }); } }
-    else if (e.type === 'bell') { const s = SLOTS[e.slot]; pops.push({ t: 0, x: s.x, y: 0.06, z: s.z, s: e.r * 2, flat: true, col: [0.75, 0.85, 1.0], dur: 0.5 }); }
-    else if (e.type === 'zap') { const pts = e.pts.map((p, i) => new THREE.Vector3(p.x + (i ? (Math.random() - 0.5) * 0.15 : 0), i ? 0.35 : 0.6, p.z)); const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), zapMat); l.renderOrder = 9; scene.add(l); zaps.push({ l, t: 0 }); }
+    const top = i => { const o = toolObjs.find(o => o.slot === i), s = SLOTS[i]; return [s.x, (o ? o.h : 1) * 0.86, s.z + 0.05]; }, r = Math.random;
+    if (e.type === 'kill') { ghosts.push({ kind: e.enemy, x: e.x, z: e.z, y: e.fly ? 1.2 : 0, t: 0, shard: e.shard }); if (ENEMY_BIG[e.enemy] && clock - st.lastStop > 0.7) { st.lastStop = clock; st.freeze = 0.05; } }
+    else if (e.type === 'shot') { const [x, y, z] = top(e.slot), ty = e.fly ? 1.5 : 0.45;
+      if (e.kind === 'arrow') ember(x, y, z, e.x, ty, e.z, 0, 0.2, 0.36, 0, [2.6, 1.3, 0.35], 1);                    // a burning arrow
+      else if (e.kind === 'bomb') ember(x, y, z, e.x, 0.12, e.z, 0, e.t, 0.8, 0, [2.6, 0.9, 0.15], 1);                 // a fireball on its way
+      else { const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(e.x, ty, e.z)]), rayMat); l.renderOrder = 9; scene.add(l); zaps.push({ l, t: 0 });
+        pops.push({ t: 0, x: e.x, y: ty, z: e.z + 0.2, s: 0.75, col: [1, 0.9, 0.6], dur: 0.2 }); } }
+    else if (e.type === 'boom') { pops.push({ t: 0, x: e.x, y: 0.06, z: e.z, s: e.r * 2.1, flat: true, col: [1, 0.6, 0.2], dur: 0.4 });
+      for (let i = 0; i < 9; i++) { const a = r() * 6.283, sp = 0.4 + r() * 1.4; ember(e.x, 0.15, e.z, Math.cos(a) * sp, 1.2 + r() * 1.6, Math.sin(a) * sp * 0.6, 0, 0.6 + r() * 0.6, 0.22 + r() * 0.2, 1.4, [2.6, 1.0 + r() * 0.5, 0.2]); } }
+    else if (e.type === 'flash') { st.flashT = 0; st.fx = e.x; st.fz = e.z; st.fr = e.r; shakeUntil = clock + 3; ring.position.set(e.x, 0.05, e.z);
+      for (let i = 0; i < 46; i++) { const a = r() * 6.283, sp = 1 + r() * 4; ember(e.x, 0.3, e.z, Math.cos(a) * sp, 1 + r() * 3, Math.sin(a) * sp * 0.7, r() * 0.1, 0.7 + r() * 1.2, 0.16 + r() * 0.2, 0.8 + r(), [2.0, 1.2 + r() * 0.5, 0.35]); } }
+    else if (e.type === 'hskill') pops.push({ t: 0, x: e.x, y: 0.06, z: e.z, s: e.r * 2, flat: true, col: [1, 0.8, 0.4], dur: 0.45 });
+    else if (e.type === 'reinforce' || e.type === 'go' || e.type === 'rally') pops.push({ t: 0, x: e.x, y: 0.06, z: e.z, s: e.type === 'go' ? 0.7 : 1.0, flat: true, col: [1, 0.85, 0.5], dur: 0.35 });
+    else if (e.type === 'fall' || e.type === 'heroDown') burst(e.x, e.z, 0.7, e.type === 'fall' ? 4 : 9, [[0.99, 0.92, 0.74], [1.0, 0.62, 0.16]], 3);
+    else if (e.type === 'build' || e.type === 'upgrade' || e.type === 'sell') { syncTools(game); if (e.type !== 'sell') { const s = SLOTS[e.slot]; pops.push({ t: 0, x: s.x, y: 0.6, z: s.z + 0.2, s: 1.8, col: [1, 0.85, 0.5] }); } }
     else if (e.type === 'won') st.dawnTarget = 1; else if (e.type === 'lost') st.lost = 0.001;
   }
   const ENEMY_BIG = { turtle: 1, boss: 1 };
@@ -317,17 +321,20 @@ export async function createHarbour(frame, SHAPES) {
     const tf = st.flashT, flashSpike = tf >= 0 ? Math.exp(-tf * 7) * sstep(0, 0.14, tf) : 0, after = tf >= 0 ? Math.exp(-tf * 0.6) * sstep(0, 0.3, tf) : 0, gather = st.gather;
     setShadowMode(st.dawn < 0.04 ? 'night' : 'dawn');
     // --- enemies (instanced)
-    for (const k in kinds) kinds[k].n = 0; let nb = 0, hitPulse = 0;
+    for (const k in kinds) kinds[k].n = 0; let nb = 0; const hitPulse = 0;
     const put = (kind, x, y, z, sx, sy, flip, bright) => { const K = kinds[kind]; if (K.n >= CAP[kind]) return; _m.compose(_v.set(x, y, z), ID, _s.set(sx * flip, sy, 1)); K.mesh.setMatrixAt(K.n, _m); K.cast.setMatrixAt(K.n, _m); K.mesh.setColorAt(K.n, _c.setRGB(bright, bright, bright)); K.n++; };
+    const bar = (x, y, z, w, k, ally) => { if (nb >= BARS) return; _m.compose(_v.set(x, y, z), camera.quaternion, _s.set(w + 0.05, 0.115, 1)); barBack.setMatrixAt(nb, _m); const kw = Math.max(0.001, w * clamp(k));
+      _m.compose(_v.set(x - (w - kw) / 2, y, z), camera.quaternion, _s.set(kw, 0.068, 1)); barFill.setMatrixAt(nb, _m); barFill.setColorAt(nb, ally ? _c.setRGB(0.72, 1.0, 0.7) : _c.setRGB(1.0, 0.52, 0.16)); nb++; };
     if (game) { st.alive = game.enemies.length;
-      for (const e of game.enemies) { const K = kinds[e.type]; if (!K) continue; const ph = clock * (5 + e.spd * 3) + e.ph, hop = e.stun > 0 ? 0 : Math.abs(Math.sin(ph)), lift = (e.air > 0 ? Math.sin(e.air * Math.PI) * 0.9 : hop * 0.06 * Math.min(2, K.h * 2)) - Math.max(0, 1 - e.s) * K.h * 0.55;   // they crawl up out of the waves
-        if (e.lit > 0.1) hitPulse = 1;
-        const sw = e.type === 'fry' || e.type === 'baby' || e.type === 'fish' ? 1 : 0;   // a little scatter so a swarm reads as many small things, not one mass
-        put(e.type, e.x + Math.cos(e.ph * 7) * 0.2 * sw, lift, e.z + 0.02 + Math.sin(e.ph * 5) * 0.14 * sw, 1 + 0.07 * (0.5 - hop), 1 - 0.09 * (0.5 - hop), e.hx > 0.35 ? -1 : 1, e.blocked > 0 ? 9 : e.lit > 0 ? 2.4 : e.stun > 0 ? 1.6 : e.z > 4.2 ? 1.6 : 1);   // still in the water: rim and eyes a little brighter so they read against the waves
-        if ((e.type === 'turtle' || e.type === 'boss') && nb < bars.length) { const b = bars[nb++], k = clamp(e.hp / e.max), w = Math.min(2.2, K.h * 0.9); b.g.visible = true; b.g.position.set(e.x, K.h + 0.22, e.z); b.g.quaternion.copy(camera.quaternion); b.g.scale.set(w, 1, 1); b.bf.scale.x = Math.max(0.001, k * 0.98); b.bf.position.x = -(1 - k) * 0.49; } } }
-    for (; nb < bars.length; nb++) bars[nb].g.visible = false;
+      for (const e of game.enemies) { const K = kinds[e.type]; if (!K) continue; const ph = clock * (5 + e.spd * 3) + e.ph, still = e.stun > 0 || e.blocker, hop = still ? 0 : Math.abs(Math.sin(ph)), rise = clamp((game.time - e.born) / 1.3);
+        const lift = (e.fly ? 1.25 + Math.sin(clock * 3 + e.ph) * 0.12 : hop * 0.07) - (1 - rise) * K.h * 0.6;   // they crawl up out of the waves; gulls ride the air
+        put(e.type, e.x, lift, e.z + 0.02, 1 + 0.07 * (0.5 - hop), 1 - 0.09 * (0.5 - hop), e.hx > 0.35 ? -1 : 1, e.hitT > 0 ? 2.6 : e.stun > 0 ? 1.7 : e.z > 4.2 ? 1.6 : 1);
+        bar(e.x, lift + K.h + 0.15, e.z, clamp(K.w * 0.8, 0.5, 1.7), e.hp / e.max, false); }
+      for (const u of game.units) { if (u.dead) continue; const K = kinds[u.kind], hop = Math.abs(Math.sin(clock * 7 + u.ph)) * (u.tgt ? 0.06 : 0.02);
+        put(u.kind, u.x, hop, u.z + 0.02, 1, 1, u.hx < 0 ? -1 : 1, u.hitT > 0 ? 2.4 : 1); if (u.hp < u.max || u.kind === 'hero') bar(u.x, K.h + 0.13, u.z, 0.55, u.hp / u.max, true); } }
+    barBack.count = barFill.count = nb; barBack.instanceMatrix.needsUpdate = barFill.instanceMatrix.needsUpdate = true; if (barFill.instanceColor) barFill.instanceColor.needsUpdate = true;
     for (let i = ghosts.length - 1; i >= 0; i--) { const g = ghosts[i], K = kinds[g.kind]; g.t += dt; const big = ENEMY_BIG[g.kind], T1 = big ? 0.28 : 0.16, k = Math.sin(clamp(g.t / 0.1) * Math.PI * 0.5);   // squash, edge flashes white, pop + scraps
-      if (g.t < T1) { put(g.kind, g.x, 0, g.z + 0.02, 1 + 0.42 * k, 1 - 0.46 * k, 1, g.t > T1 * 0.55 ? 16 : 1.5); continue; }
+      if (g.t < T1) { put(g.kind, g.x, g.y || 0, g.z + 0.02, 1 + 0.42 * k, 1 - 0.46 * k, 1, g.t > T1 * 0.55 ? 16 : 1.5); continue; }
       const small = g.kind === 'fry' || g.kind === 'baby'; burst(g.x, g.z, K.h, big ? 14 : small ? 2 : 4, CHIP, big ? 24 : 2); if (!small) pops.push({ t: 0, x: g.x, y: K.h * 0.5, z: g.z + 0.2, s: Math.max(0.7, K.h * 1.7) });
       if (g.shard > 0) ember(g.x, K.h * 0.6, g.z, 2.6 + Math.random() * 0.3, 9.4, -6, 0, 0.8, 0.42, 0, [1.3, 1.6, 2.3], 1);
       ghosts.splice(i, 1); }
@@ -339,8 +346,10 @@ export async function createHarbour(frame, SHAPES) {
     for (let i = zaps.length - 1; i >= 0; i--) { const z = zaps[i]; z.t += dt; if (z.t > 0.14) { scene.remove(z.l); z.l.geometry.dispose(); zaps.splice(i, 1); } }
 
     // --- the lighthouse beam
-    const lampOn = (1 - sstep(0.15, 0.8, st.dawn)) * (1 - st.lost * 0.92), radius = game ? game.lamp.radius : 1.05;
-    if (game && !game.done) beamAim.set(game.aim.x, 0, game.aim.z); else beamAim.lerp(_v.set(Math.sin(ti * 0.42 + 0.6) * 3.0, 0, -1.4 + Math.sin(ti * 0.27 + 2) * 2.8), 1 - Math.exp(-dt * 0.9));
+    const lampOn = (1 - sstep(0.15, 0.8, st.dawn)) * (1 - st.lost * 0.92), radius = 1.05;
+    if (game && !game.done && tf >= 0 && tf < 1.6) beamAim.lerp(_v.set(st.fx, 0, st.fz), 1 - Math.exp(-dt * 14));
+    else if (game && !game.done && !game.hero.dead) beamAim.lerp(_v.set(game.hero.x, 0, game.hero.z), 1 - Math.exp(-dt * 3));
+    else beamAim.lerp(_v.set(Math.sin(ti * 0.42 + 0.6) * 3.0, 0, -1.4 + Math.sin(ti * 0.27 + 2) * 2.8), 1 - Math.exp(-dt * 0.9));
     const bI = (1 - 0.55 * gather) * (tf >= 0 ? sstep(0.3, 1.2, tf) * 0.4 + 0.6 : 1) * lampOn * (0.92 + 0.08 * Math.sin(ti * 1.7)) * (1 + 0.25 * hitPulse), flick = 0.94 + 0.06 * Math.sin(ti * 9.1) * Math.sin(ti * 5.3), glow = (1 + flashSpike * 2.2 + after * 0.9) * lampOn * flick;
     _t.copy(beamAim).sub(LANTERN); const dist = _t.length(), len = dist * 1.45;
     // the pool on the ground keeps one brightness wherever the beam points: amber, never burnt out to white
@@ -350,23 +359,20 @@ export async function createHarbour(frame, SHAPES) {
     const cu = castMat.uniforms; cu.uDir.value.copy(_t); cu.uCone.value = Math.cos(beam.angle); cu.uPen.value = Math.cos(beam.angle * (1 - beam.penumbra)); cu.uA.value = clamp(bI + 0.4) * (1 - D);
     const hs = 0.55 * Math.sqrt(lampOn) + flashSpike * 2.6 + after * 0.25; halo.scale.setScalar(hs); halo.material.opacity = clamp(0.5 * lampOn + flashSpike); flare.scale.setScalar(hs * 1.5 + flashSpike * 5); flare.material.opacity = clamp(0.12 * lampOn + flashSpike * 0.9);
     towerGlow.color.copy(towerGlow.userData.base).multiplyScalar(clamp(lampOn * flick + flashSpike, 0, 2));
-    aimRing.position.set(beamAim.x, 0.05, beamAim.z); aimRing.scale.setScalar(radius); aimRing.material.opacity = game && game.manual ? 0.5 : 0;
+    if (st.range) { aimRing.position.set(st.range.x, 0.05, st.range.z); aimRing.scale.setScalar(st.range.r); } aimRing.material.opacity = st.range ? 0.6 : 0;
     selRing.visible = st.sel >= 0; if (st.sel >= 0) { selRing.position.set(SLOTS[st.sel].x, 0.05, SLOTS[st.sel].z); selRing.scale.setScalar(1 + 0.06 * Math.sin(ti * 6)); }
-    lineMat.opacity = 0.5 * lampOn * (0.8 + 0.2 * Math.sin(ti * 7));
     // --- stands and their light
-    for (const o of toolObjs) { const a = clamp((clock - o.born) / 0.25); o.g.scale.setScalar(0.6 + 0.4 * (1 - Math.pow(1 - a, 3))); o.g.rotation.z = Math.sin(ti * 1.3 + o.slot) * 0.02 + (o.lit ? 0 : Math.sin(ti * 9 + o.slot) * 0.015); o.g.rotation.x = LEAN; }
-    for (const m of lightObjs) { m.material.uniforms.uI.value = m.userData.base * (1 - D) * (0.9 + 0.1 * Math.sin(ti * 2.3 + m.userData.L.slot)); m.material.uniforms.uTime.value = ti; }
-    if (game && frameNo % 4 === 0) for (const L of game.lights) if (L.kind === 'fire') { const a = Math.random() * 6.283, r = Math.random() * L.r; ember(L.x + Math.cos(a) * r, 0.1, L.z + Math.sin(a) * r, (Math.random() - 0.5) * 0.4, 0.9, (Math.random() - 0.5) * 0.4, 0, 0.8, 0.2, 2.2, [2.6, 1.0, 0.2]); }
-    if (game && frameNo % 6 === 0) game.tools.forEach((t, i) => { if (t && t.type === 'jar') { const s = SLOTS[i]; ember(s.x + (Math.random() - 0.5) * 0.5, 0.5 + Math.random() * 0.4, s.z + 0.1, (Math.random() - 0.5) * 0.5, 0.2, (Math.random() - 0.5) * 0.5, 0, 1.3, 0.14, 0.1, [1.2, 1.9, 0.5]); } });
-    { const can = game && !game.done && game.shards >= Math.min(...Object.keys(BUILDS).map(t => game.cost(-1, t)));
+    for (const o of toolObjs) { const a = clamp((clock - o.born) / 0.25); o.g.scale.setScalar(0.6 + 0.4 * (1 - Math.pow(1 - a, 3))); o.g.rotation.z = Math.sin(ti * 1.3 + o.slot) * 0.015; o.g.rotation.x = LEAN; }
+    if (game && frameNo % 4 === 0) for (const f of game.fires) { const a = Math.random() * 6.283, q = Math.random() * f.r; ember(f.x + Math.cos(a) * q, 0.1, f.z + Math.sin(a) * q * 0.7, (Math.random() - 0.5) * 0.4, 0.9, (Math.random() - 0.5) * 0.4, 0, 0.8, 0.22, 2.2, [2.6, 1.0, 0.2]); }
+    { const can = game && !game.done && game.shards >= Math.min(...TOWER_ORDER.map(t => TOWERS[t].cost[0]));
       slotMarks.forEach((d, i) => { d.g.visible = !game || !game.tools[i]; d.spot.material.uniforms.uI.value = (can ? 1.0 : 0.42) * (0.78 + 0.22 * Math.sin(ti * 2.6 + i * 0.8)) * (1 - 0.8 * D); }); }
     // --- windows: the village goes dark house by house as shadows get through
     const frac = game ? game.windows / game.windowsMax : 1;
     houses.forEach((h, i) => { const on = clamp(frac * houses.length - (houses.length - 1 - i)), w = on * (1 - sstep(0.3, 0.9, st.dawn)) * (0.95 + 0.05 * Math.sin(ti * 6 + i * 3)) * (1 - st.lost * 0.9); h.userData.glow.color.copy(h.userData.glow.userData.base).multiplyScalar(w); });
     // --- flash ring, paper shake, the sea
-    ringMat.uniforms.uR.value = Math.max(0, tf) * WAVE_V / (RING / 2); ringMat.uniforms.uI.value = tf >= 0 ? 0.95 * (1 - sstep(0.9, 1.3, tf)) : 0; ringMat.uniforms.uW.value = 0.009 + 0.004 * clamp(tf);
+    ringMat.uniforms.uR.value = Math.min(st.fr, Math.max(0, tf) * 7) / (RING / 2); ringMat.uniforms.uI.value = tf >= 0 ? 0.95 * (1 - sstep(0.35, 0.8, tf)) : 0; ringMat.uniforms.uW.value = 0.009 + 0.004 * clamp(tf);
     const shaking = clock < shakeUntil;
-    for (const f of flats) { const d = Math.hypot(f.x - TOWER.x, f.z - TOWER.z), tw = tf - d / WAVE_V; let a = Math.sin(ti * 0.9 + f.seed) * 0.005; if (tf >= 0 && tw > 0 && tw < 3.5) a += f.amp * (0.24 / (1 + d * 0.06)) * Math.exp(-tw * 1.9) * Math.sin(tw * 15); f.g.rotation.x = LEAN + a; f.g.rotation.z = a * 0.35 * Math.sin(f.seed * 3); }
+    for (const f of flats) { const d = Math.hypot(f.x - st.fx, f.z - st.fz), tw = tf - d / WAVE_V; let a = Math.sin(ti * 0.9 + f.seed) * 0.005; if (tf >= 0 && tw > 0 && tw < 3.5) a += f.amp * (0.24 / (1 + d * 0.06)) * Math.exp(-tw * 1.9) * Math.sin(tw * 15); f.g.rotation.x = LEAN + a; f.g.rotation.z = a * 0.35 * Math.sin(f.seed * 3); }
     for (const w of waves) { w.g.position.x = Math.sin(ti * w.sp + w.ph) * w.drift; w.g.position.y = w.y + Math.sin(ti * w.sp * 1.7 + w.ph * 2) * w.amp; w.g.rotation.z = Math.sin(ti * w.sp * 0.8 + w.ph) * 0.01; w.g.rotation.x = LEAN + Math.sin(ti * w.sp + w.ph * 3) * 0.04; }
     boat.position.y = 0.75 + Math.sin(ti * 0.55 * 1.7 + 7.6) * 0.07; boat.rotation.z += Math.sin(ti * 0.9) * 0.02; cloudA.position.x = -2.9 + Math.sin(ti * 0.05) * 0.5;
     // --- dawn after the last wave
@@ -389,7 +395,7 @@ export async function createHarbour(frame, SHAPES) {
     if (!document.hidden && dt > 0) { st.fpsAcc += dt; st.fpsN++; if (st.fpsAcc > 0.5) { st.fps = st.fpsN / st.fpsAcc; st.fpsAcc = 0; st.fpsN = 0; }
       if (dt > 1 / 45) { st.slow += dt; st.fast = 0; } else { st.fast += dt; if (st.fast > 1) st.slow = 0; } if (st.slow > 1.2 && !st.hold) { st.slow = 0; wantScale = Math.max(0.5, scale - 0.15); } }
   }
-  return { reset, onEvent, frame: frameUpdate, pickGround, slotAt, toScreen, resize, st, setGather: k => { st.gather = k; }, select: i => { st.sel = i; }, fadeIn: () => {}, setScale: k => { wantScale = k; }, canvas: renderer.domElement, _dbg: { composer, bloom, grade, renderer, scene, camera, beam, sun, dust, embers, scraps, cone, kinds, hemi, fill, M, tune: o => { ({ POOL, BEAM_MAX, CONE } = { POOL, BEAM_MAX, CONE, ...o }); } },
+  return { reset, onEvent, frame: frameUpdate, pickGround, slotAt, toScreen, resize, st, setGather: k => { st.gather = k; }, range: r => { st.range = r; }, select: i => { st.sel = i; }, fadeIn: () => {}, setScale: k => { wantScale = k; }, canvas: renderer.domElement, _dbg: { composer, bloom, grade, renderer, scene, camera, beam, sun, dust, embers, scraps, cone, kinds, hemi, fill, M, tune: o => { ({ POOL, BEAM_MAX, CONE } = { POOL, BEAM_MAX, CONE, ...o }); } },
     info: () => ({ tris: renderer.info.render.triangles || st.tris, calls: renderer.info.render.calls || st.calls, pixelRatio: scale, fps: st.fps, alive: st.alive }) };
   } catch (err) { renderer.dispose(); renderer.domElement.remove(); throw err; }
 }

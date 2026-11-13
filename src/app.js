@@ -1,26 +1,26 @@
-// 등불지기 (Lamplighter) 2.0.1 — boot, screens, input and the loop for the harbour night.
+// 등불지기 (Lamplighter) 3.0 — boot, screens, input and the loop for the harbour night.
 // Every piece of interface is cut paper pinned over the stage: no glyph symbols, icons are drawn as silhouettes.
-import { Game, PlanBot, PLANS, BUILDS, BUILD_ORDER, SLOTS, LAST_WAVE, sellValue, clamp } from './game.js';
+import { Game, Bot, TOWERS, TOWER_ORDER, towerStat, SLOTS, LAST_WAVE, PERKS as PERK_DEF, perkCost, SKILLS, starsFor, sellValue, clamp } from './game.js';
 import { createHarbour } from './harbour.js';
 import * as audio from './audio.js';
 import * as net from './net.js';
 
-export const VERSION = '2.0.3';
+export const VERSION = '3.0.0';
 const Q = new URLSearchParams(location.search), DEBUG = Q.has('debug'), AUTO = Q.has('auto');
 const $ = (s, el = document) => el.querySelector(s), ui = $('#ui'), frame = $('#frame');
 const h = html => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const KEY = AUTO ? 'lamplighter.v2.auto' : 'lamplighter.v2';
-const fresh = () => ({ v: 2, stars: 0, perks: {}, best: 0, bestStars: 0, runs: 0, nick: '', asked: false, pid: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)), set: { music: true, sfx: true, mv: 0.6, sv: 0.8 } });
-let save = fresh(); try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.v === 2 && !AUTO) save = Object.assign(fresh(), d, { set: Object.assign(fresh().set, d.set) }); } catch (e) { /* first run */ }
+const KEY = AUTO ? 'lamplighter.v3.auto' : 'lamplighter.v3';
+const fresh = () => ({ v: 3, stars: 0, perks: {}, best: 0, bestStars: 0, runs: 0, nick: '', asked: false, pid: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)), set: { music: true, sfx: true, mv: 0.6, sv: 0.8 } });
+let save = fresh();
+try { const d = JSON.parse(localStorage.getItem(KEY));
+  if (d && d.v === 3 && !AUTO) save = Object.assign(fresh(), d, { set: Object.assign(fresh().set, d.set) });
+  else if (!AUTO) { const o = JSON.parse(localStorage.getItem('lamplighter.v2')); if (o) Object.assign(save, { nick: o.nick || '', pid: o.pid || save.pid, asked: !!o.asked, set: Object.assign(save.set, o.set) }); }   // 2.0 saves: keep the name and settings, the old upgrades no longer exist
+} catch (e) { /* first run */ }
 const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) { /* private mode */ } };
 audio.configure(save.set);
-const PERKS = [
-  { id: 'shards', name: '두둑한 주머니', desc: '시작 빛조각 +40', max: 2, cost: [2, 4] }, { id: 'lamp', name: '굵은 심지', desc: '등대 빛 +15%', max: 2, cost: [2, 4] },
-  { id: 'windows', name: '덧창', desc: '창문 +3', max: 2, cost: [2, 3] }, { id: 'flash', name: '기름통', desc: '섬광 충전 15% 빠르게', max: 2, cost: [2, 4] },
-  { id: 'refund', name: '단골 고물상', desc: '판매 환급 80%', max: 1, cost: [3] }, { id: 'reroll', name: '카드 다시 뽑기', desc: '판마다 다시 뽑기 +1', max: 2, cost: [3, 5] },
-];
+const PERKS = Object.entries(PERK_DEF).map(([id, p]) => ({ id, ...p, cost: Array.from({ length: p.max }, (_, i) => perkCost(i)) }));
 
 const SHAPES = await fetch('./assets/shapes.json').then(r => r.json());
 // ---------- paper pieces and hand-cut icons ----------
@@ -33,6 +33,7 @@ const I = { // 24 x 24 silhouettes, cut by hand (slightly crooked on purpose)
   up: 'M12 3 L20 12 L15.2 11.6 L15.6 21 L8.6 20.8 L9 11.7 L4 12.2 Z',
   turn: 'M12.2 4.2 a8 8 0 1 1 -7.7 5.6 L7.3 10.6 a5.2 5.2 0 1 0 4.9 -3.6 L12.3 9.8 L7.2 5.6 L12.1 1.4 Z',
   sell: 'M9 3 L15 3.2 L13.6 6.4 C18 8 20 12 19.4 17 C19 20.4 15.8 21.4 12 21.4 C8.2 21.4 5 20.4 4.6 17 C4 12 6 8 10.4 6.4 Z',
+  check: 'M3.6 12.6 L9.4 18.6 L20.8 5.6 L18 3.4 L9.2 13.4 L6.2 10.2 Z', flag: 'M5.6 3 L8 3.2 L8.2 21 L5.8 21 Z M8 4 L19.4 7.6 L8.1 11.8 Z',
   fast: 'M4 5 L12 12 L4.3 19 Z M12.5 5.2 L20.5 12 L12.4 19 Z', slow: 'M7 5 L17 12 L7.3 19 Z',
 };
 const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${I[name]}"/></svg>`;
@@ -42,35 +43,30 @@ const moonIc = f => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><def
 const paper = (inner, cls = '', o = {}) => `<${o.tag || 'div'} class="lift ${o.pin ? 'pin' : ''} ${o.out || ''}" ${o.attrs || ''}><span class="paper ${cls}">${inner}</span></${o.tag || 'div'}>`;
 const btn = (label, a, cls = '', extra = '') => paper(label, 'btn ' + cls, { tag: 'button', attrs: `data-a="${a}" ${extra}` });
 const tab = (inner, a, label) => paper(inner, 'tab', { tag: 'button', attrs: `data-a="${a}" aria-label="${label}"` });
-const TOOL_ICON = { mirror: 't_mirror', prism: 't_prism', lens: 't_lens', bell: 't_bell', beacon: 't_beacon', jar: 't_jar' };
-const DIRECTED = { mirror: 1, prism: 1, lens: 1, beacon: 1 };
-// reward cards: an ink drawing and one line, no sentences
-const CARD_UI = { prism4: ['t_prism', '프리즘 +1갈래'], fishslow: ['e_fish', '날치 속도 −25%'], shard20: ['*star', '빛조각 +20%'], lamp25: ['tower', '등대 빛 +25%'], lampwide: ['tower', '빛 웅덩이 +20%'],
-  flashfast: ['*lamp', '섬광 충전 +25%'], flashhard: ['*lamp', '섬광 피해 +60%'], mirrorlong: ['t_mirror', '거울 길이 +30%'], lenshot: ['t_lens', '렌즈 빛 +30%'], bellstun: ['t_bell', '기절 +0.6초'], burn: ['t_beacon', '불길 +35%'],
-  chain1: ['t_jar', '번개 +1마리'], link: ['t_prism', '연결마다 +12%'], feed: ['tower', '등대 빛 더 멀리'], refund: ['barrels', '판매 환급 90%'], gift: ['*star', '빛조각 +70'], window: ['house_c', '창문 +3'],
-  fryslow: ['e_fry', '잔챙이 속도 −12%'], shield: ['e_crab', '방패 약화'], octo2: ['e_octo', '분열 3 → 2'], fogthin: ['cloud_b', '안개 옅게'], shell: ['e_turtle', '등딱지 약화'], early: ['moon', '미리 부르기 2배'], interest: ['*star', '웨이브마다 +8%'], cheap: ['barrels', '값 −12%'] };
+const TOOL_ICON = { archer: 'watch', barracks: 'hut', lens: 't_lens', beacon: 't_beacon' };
 const LAMP = { body: 'M22 62 C30 56 74 56 82 62 L90 57 L95 63 L84 72 C80 84 66 90 62 92 L66 100 L38 100 L42 92 C36 90 24 84 21 72 L8 66 L10 59 Z M45 57 L46 48 L58 47.6 L59 57 Z', flame: 'M52 6 C63 21 67 30 60 40 C57 46 47 46 44 40 C38 30 45 21 52 6 Z' };
-const cardIc = k => k === '*star' ? `<svg class="ink" viewBox="0 0 24 24"><path vector-effect="non-scaling-stroke" d="${I.star}"/></svg>` : k === '*lamp' ? `<svg class="ink" viewBox="0 0 104 104"><path vector-effect="non-scaling-stroke" d="${LAMP.body} ${LAMP.flame}"/></svg>` : shapeIc(k, 'ink');
+const lampIc = `<svg class="ic" viewBox="0 0 104 104" aria-hidden="true"><path fill-rule="evenodd" d="${LAMP.body} ${LAMP.flame}"/></svg>`;
 
 const stage = await createHarbour(frame, SHAPES);
 $('#load').remove();
 
 // ---------- state ----------
-let game = null, bot = null, playing = false, paused = false, speed = 1, hold = null, menuSlot = -1, tipT = 0, endT = -1, submitted = false, starsPaid = false, hudKey = '';
-const TIPS = { 1: '자리를 눌러 거울을 세워요. 등대 곁 자리만 빛을 바로 받아요.', 2: '날치는 뛰는 동안 빛이 닿지 않아요.', 3: '방패게는 정면 빛을 막아요. 옆이나 뒤에서 비춰요.', 4: '문어는 사라지면 셋으로 갈라져요.',
-  5: '안개는 종소리로 걷어내요.', 6: '거울만으로는 모자라요. 빛을 이어 프리즘과 렌즈를 켜요.', 7: '거북은 렌즈로 모은 빛이 필요해요.', 15: '큰 고래 그림자가 와요.' };
+let game = null, bot = null, playing = false, paused = false, speed = 1, menuSlot = -1, pending = '', aiming = '', rallySlot = -1, tipT = 0, endT = -1, submitted = false, hudKey = '';
+const TIPS = { 1: '빛나는 자리를 눌러 탑을 세워요.', 2: '땅을 누르면 등대지기가 그리로 가요.', 3: '방패게는 화살이 잘 안 들어요. 렌즈탑으로 비춰요.', 4: '갈매기 그림자는 궁수탑만 맞혀요.',
+  5: '문어는 쓰러지면 셋으로 갈라져요.', 6: '거북은 단단해요. 길을 막고 렌즈로 비춰요.', 15: '큰 고래 그림자가 와요.' };
 
 function startRun(opt = {}) {
-  game = new Game({ seed: opt.seed ?? ((Date.now() & 0xffff) + 1), perks: save.perks }); bot = opt.bot ? new PlanBot(game, PLANS[opt.bot], ['link', 'lenshot', 'prism4', 'lamp25', 'shard20', 'chain1', 'burn', 'window', 'gift']) : null;
-  stage.reset(game); playing = true; paused = false; speed = 1; endT = -1; submitted = false; starsPaid = false; menuSlot = -1; save.runs++; persist(); audio.setMood('night'); showHud(); showTip(TIPS[1], 12);
+  const seed = opt.seed ?? ((Date.now() & 0xffff) + 1);
+  game = new Game({ seed, perks: save.perks }); bot = opt.bot ? new Bot(game, opt.bot, seed) : null;
+  stage.reset(game); playing = true; paused = false; speed = 1; endT = -1; submitted = false; menuSlot = -1; pending = ''; aiming = ''; rallySlot = -1; save.runs++; persist(); audio.setMood('night'); showHud(); showTip(TIPS[1], 14);
 }
-function reached() { return game ? (game.phase === 'won' || game.phase === 'cards' || game.phase === 'break' ? game.wave : Math.max(0, game.wave - 1)) : 0; }
-function bank() { // record the run once: stars, best wave, ranking
+function reached() { return game ? (game.phase === 'won' ? LAST_WAVE : Math.max(0, game.wave - 1)) : 0; }
+function bank() { // record the run once: stars (earned again every night that is held), best wave, ranking
   if (!game || submitted) return null; submitted = true;
-  const cleared = reached(), stars = cleared >= LAST_WAVE ? Math.max(1, game.stars) : 0, gain = starsPaid ? 0 : Math.max(0, stars - (save.bestStars || 0)) + (cleared >= LAST_WAVE ? 1 : 0);
-  if (cleared >= LAST_WAVE) starsPaid = true;
-  save.stars += gain; save.bestStars = Math.max(save.bestStars || 0, stars); save.best = Math.max(save.best, cleared); persist();
-  const res = { cleared, stars, gain, score: cleared * 100 + Math.max(0, game.windows) };
+  const cleared = reached(), stars = game.phase === 'won' ? starsFor(game.windows) : 0;
+  if (bot) return { cleared, stars, gain: 0, score: 0 };   // a scripted demo run earns nothing
+  save.stars += stars; save.bestStars = Math.max(save.bestStars || 0, stars); save.best = Math.max(save.best, cleared); persist();
+  const res = { cleared, stars, gain: stars, score: cleared * 100 + Math.max(0, game.windows) };
   if (save.nick && cleared > 0 && !AUTO) net.submitScore(save.pid, save.nick, res.score).then(r => { const el = $('#rankline'); if (el) el.textContent = r ? `오늘 ${r}등` : '순위에 올렸어요'; }).catch(() => { const el = $('#rankline'); if (el) el.textContent = '순위를 올리지 못했어요'; });
   return res;
 }
@@ -90,7 +86,7 @@ function showTitle() {
 const topBar = title => `<div class="top">${tab(ic('back'), 'back', '뒤로')}${paper(title, '', { tag: 'h2', out: 'grow' })}<span style="width:50px"></span></div>`;
 function showPerks() {
   clearUi();
-  const el = h(`<div class="screen veil">${topBar(`강화 ${ic('star')} <span class="num">${save.stars}</span>`)}<div class="body"><h3>별로 사는 영구 강화. 별은 열다섯 웨이브를 넘기면 얻어요.</h3>${PERKS.map(p => { const l = save.perks[p.id] || 0, c = p.cost[l];
+  const el = h(`<div class="screen veil">${topBar(`강화 ${ic('star')} <span class="num">${save.stars}</span>`)}<div class="body"><h3>별로 사는 영구 강화. 밤을 지켜 낼 때마다 별을 얻어요(창문 18개 이상이면 셋).</h3>${PERKS.map(p => { const l = save.perks[p.id] || 0, c = p.cost[l];
     return paper(`<div class="t"><b>${p.name}</b><span>${p.desc}</span><div class="dots">${Array.from({ length: p.max }, (_, i) => `<i class="${i < l ? 'on' : ''}"></i>`).join('')}</div></div>${l >= p.max ? '<span>최고</span>' : paper(`${ic('star')}<span class="num">${c}</span>`, 'btn', { tag: 'button', attrs: `data-perk="${p.id}" ${save.stars >= c ? '' : 'disabled'}` })}`, 'strip ' + (l >= p.max ? 'done' : ''), { out: 'block' }); }).join('')}</div></div>`);
   onTap(el, d => { if (d.a === 'back') return showTitle(); const p = PERKS.find(x => x.id === d.perk); if (!p) return; const l = save.perks[p.id] || 0; if (l < p.max && save.stars >= p.cost[l]) { save.stars -= p.cost[l]; save.perks[p.id] = l + 1; persist(); audio.sfx('sparkle'); showPerks(); } });
   ui.append(el);
@@ -98,7 +94,7 @@ function showPerks() {
 function showRank() {
   clearUi();
   const el = h(`<div class="screen veil">${topBar('친구 순위')}<div class="body">
-    ${paper(`<div class="t"><b>${esc(save.nick) || '이름 없음'}</b><span>점수는 버틴 웨이브</span></div>${btn('바꾸기', 'nick', 'plain')}`, 'strip', { out: 'block' })}
+    ${paper(`<div class="t"><b>${esc(save.nick) || '이름 없음'}</b><span>점수는 넘긴 웨이브와 남은 창문</span></div>${btn('바꾸기', 'nick', 'plain')}`, 'strip', { out: 'block' })}
     <h3>오늘</h3>${paper('<div id="rk-d" class="ranks"><div class="rank"><span>불러오는 중</span></div></div>', 'col', { out: 'block' })}<h3>이번 주</h3>${paper('<div id="rk-w" class="ranks"><div class="rank"><span>불러오는 중</span></div></div>', 'col', { out: 'block' })}</div></div>`);
   onTap(el, d => { if (d.a === 'back') showTitle(); else if (d.a === 'nick') askNick(showRank); });
   ui.append(el);
@@ -116,48 +112,51 @@ function showSettings() {
     (a, el, t) => { if (a === 'ok') { el.remove(); return; } save.set[a] = !save.set[a]; t.classList.toggle('on', save.set[a]); persist(); audio.configure(save.set); });
   el.addEventListener('input', e => { const k = e.target.dataset.v; if (k) { save.set[k] = +e.target.value; persist(); audio.configure(save.set); } });
 }
+const skillBtn = (a, icon, label) => `<button class="sk lift" data-a="${a}" id="sk-${a}" aria-label="${label}"><span class="paper">${icon}<i class="veil2"></i></span><em>${label}</em></button>`;
 function showHud() {
   clearUi();
   const el = h(`<div id="hud"><div class="notes">${paper('', 'note', { pin: true, attrs: 'id="n-wave"' })}${paper('', 'note', { pin: true, attrs: 'id="n-win"' })}${paper('', 'note', { pin: true, attrs: 'id="n-shard"' })}</div>
     <div class="tabs">${tab(ic('note'), 'note', '배경음')}${tab(ic('pause'), 'pause', '멈춤')}</div>
     <div id="tip" class="lift pin hide"><span class="paper"></span></div><div id="menu" class="hide"></div>
-    <div class="bottom"><span id="call"></span><span style="flex:1"></span>${paper(ic('slow'), 'tab', { tag: 'button', attrs: 'data-a="spd" id="spd" aria-label="빠르기"' })}
-      <button id="flash" data-a="flash" aria-label="섬광"><svg viewBox="0 0 104 112"><defs><clipPath id="fl"><rect id="flr" x="30" y="46" width="44" height="0"/></clipPath></defs><path class="flame-bg" d="${LAMP.flame}"/><path class="flame" clip-path="url(#fl)" d="${LAMP.flame}"/><path class="lampbody" fill-rule="evenodd" d="${LAMP.body}"/></svg><em>섬광</em></button></div>${DEBUG ? '<div id="dbg"></div>' : ''}</div>`);
+    <div class="bottom">${skillBtn('hero', shapeIc('v_old'), '등대지기')}${skillBtn('flash', lampIc, '섬광')}${skillBtn('rein', shapeIc('guard'), '지원군')}<span style="flex:1"></span><span id="call"></span>${paper(ic('slow'), 'tab', { tag: 'button', attrs: 'data-a="spd" id="spd" aria-label="빠르기"' })}</div>${DEBUG ? '<div id="dbg"></div>' : ''}</div>`);
   onTap(el, (d, t) => { if (!game) return;
     if (d.a === 'note') { save.set.music = !save.set.music; persist(); audio.configure(save.set); } else if (d.a === 'pause') showPause();
     else if (d.a === 'call') game.callWave(); else if (d.a === 'spd') { speed = speed === 1 ? 2 : 1; $('.paper', t).innerHTML = ic(speed === 2 ? 'fast' : 'slow'); $('.paper', t).classList.toggle('on', speed === 2); }
-    else if (d.a === 'flash') game.flash(); else if (d.m) menuAct(d.m, d.x); });
+    else if (d.a === 'hero') { if (!game.heroSkill()) showTip(game.hero.dead ? '등대지기가 곧 돌아와요.' : '등불 휘두르기는 아직 준비 중이에요.', 3); }
+    else if (d.a === 'flash' || d.a === 'rein') aim(aiming === d.a ? '' : d.a);
+    else if (d.m) menuAct(d.m, d.x); });
   ui.append(el);
 }
 function showTip(text, sec = 6) { const tip = $('#tip'); if (!tip || !text) return; $('.paper', tip).innerHTML = text; tip.classList.remove('hide'); tip.style.opacity = 1; tip.style.animation = 'none'; void tip.offsetWidth; tip.style.animation = ''; tipT = sec; }
-// the round build menu around a spot (Kingdom Rush style): paper tokens
+function hideTip() { tipT = 0; $('#tip')?.classList.add('hide'); }
+// a spell is armed with its button, then thrown with a tap on the ground
+function aim(k) { if (k && game.cd[k] > 0) { showTip('아직 준비 중이에요.', 3); return; } rallySlot = -1; stage.range(null); if (k) closeMenu(); aiming = k; for (const a of ['flash', 'rein']) $('#sk-' + a)?.classList.toggle('on', a === k); if (k) showTip(k === 'flash' ? '터뜨릴 곳을 눌러요.' : '주민을 부를 곳을 눌러요.', 6); else hideTip(); }
+// the round menu around a build spot: the first tap on a token shows what it does and its reach, the second confirms
 function openMenu(slot) {
-  const m = $('#menu'); if (!m || !game) return; menuSlot = slot; stage.select(slot);
-  const t = game.tools[slot], p = stage.toScreen(SLOTS[slot].x, 0.3, SLOTS[slot].z), items = [];
-  if (!t) for (const k of BUILD_ORDER) items.push({ m: 'build', x: k, ic: shapeIc(TOOL_ICON[k]), cost: game.cost(slot, k), label: BUILDS[k].name });
-  else { const B = BUILDS[t.type];
-    if (t.lvl < 3) items.push({ m: 'up', x: '', ic: ic('up'), cost: game.cost(slot), label: '올리기' });
-    else if (t.lvl === 3) for (const s of B.spec) items.push({ m: 'up', x: s.id, ic: ic('star'), cost: game.cost(slot), label: s.name });
-    if (DIRECTED[t.type]) items.push({ m: 'rot', x: '', ic: ic('turn'), label: '돌리기' });
-    items.push({ m: 'sell', x: '', ic: ic('sell'), gain: sellValue(t, game.m.refund), label: '팔기' }); }
-  const R = items.length > 4 ? 96 : 80, fw = frame.clientWidth, cx = clamp(p.x, R + 40, fw - R - 40), cy = clamp(p.y, R + 150, frame.clientHeight - R - 170);
-  m.innerHTML = items.map((it, i) => { const a = -Math.PI / 2 + (i - (items.length - 1) / 2) * (items.length > 4 ? 1.02 : 1.15), x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
-    return `<button class="mi lift ${it.cost > game.shards ? 'poor' : ''}" data-m="${it.m}" data-x="${it.x}" style="left:${x}px;top:${y}px" aria-label="${it.label}"><span class="paper">${it.ic}</span><small class="num">${it.cost != null ? it.cost : it.gain != null ? '+' + it.gain : ''}</small><i>${it.label}</i></button>`; }).join('')
-    + `<div class="mt lift" style="left:${cx}px;top:${cy + R + 40}px"><span class="paper mtp">${t ? `${BUILDS[t.type].name} <span class="num">${t.lvl}</span>단계${t.spec ? ' ' + BUILDS[t.type].spec.find(s => s.id === t.spec).name : ''}${BUILDS[t.type].optic ? (t.depth ? ` · 연결 <span class="num">${t.depth}</span>` : ' · 빛이 닿지 않아요') : ''}` : '무엇을 세울까요'}</span></div>`;
+  const m = $('#menu'); if (!m || !game) return; if (menuSlot !== slot) pending = ''; if (aiming) aim(''); menuSlot = slot; stage.select(slot);
+  const t = game.tools[slot], S = SLOTS[slot], p = stage.toScreen(S.x, 0.3, S.z), items = [];
+  if (!t) for (const k of TOWER_ORDER) items.push({ m: 'build', x: k, ic: shapeIc(TOOL_ICON[k]), cost: game.cost(slot, k), label: TOWERS[k].name, info: `${TOWERS[k].name} · ${TOWERS[k].hint}`, range: k === 'barracks' ? TOWERS.barracks.range : TOWERS[k].lv[0].range });
+  else { const T = TOWERS[t.type];
+    if (t.lvl < 3) items.push({ m: 'up', x: '', ic: ic('up'), cost: game.cost(slot), label: '올리기', info: `${T.name} <span class="num">${t.lvl + 1}</span>단계로`, range: T.lv[t.lvl].range });
+    else if (t.lvl === 3) for (const [id, s] of Object.entries(T.spec)) items.push({ m: 'up', x: id, ic: ic('star'), cost: game.cost(slot), label: s.name, info: `${s.name} · ${s.desc}`, range: s.range });
+    if (t.type === 'barracks') items.push({ m: 'rally', x: '', ic: ic('flag'), label: '모일 곳' });
+    items.push({ m: 'sell', x: '', ic: ic('sell'), gain: sellValue(t), label: '팔기', info: `팔면 빛조각 <span class="num">+${sellValue(t)}</span>` }); }
+  const cur = t ? (t.type === 'barracks' ? TOWERS.barracks.range : towerStat(t).range) : 0, pick = items.find(it => it.m + ':' + it.x === pending), r = (pick && pick.range) || cur;
+  stage.range(r ? { x: S.x, z: S.z, r } : null);
+  const R = 82, fw = frame.clientWidth, cx = clamp(p.x, R + 40, fw - R - 40), cy = clamp(p.y, R + 110, frame.clientHeight - R - 190);
+  m.innerHTML = items.map((it, i) => { const a = -Math.PI / 2 + (i - (items.length - 1) / 2) * 1.15, x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R, sel = pick === it;
+    return `<button class="mi lift ${it.cost > game.shards ? 'poor' : ''} ${sel ? 'sel' : ''}" data-m="${it.m}" data-x="${it.x}" style="left:${x}px;top:${y}px" aria-label="${it.label}"><span class="paper">${sel ? ic('check') : it.ic}</span><small class="num">${it.cost != null ? it.cost : it.gain != null ? '+' + it.gain : ''}</small><i>${it.label}</i></button>`; }).join('')
+    + `<div class="mt lift" style="left:${cx}px;top:${cy + R + 44}px"><span class="paper mtp">${pick ? pick.info : t ? `${TOWERS[t.type].name} ${t.lvl < 4 ? `<span class="num">${t.lvl}</span>단계` : TOWERS[t.type].spec[t.spec].name}` : '무엇을 세울까요'}</span></div>`;
   m.classList.remove('hide');
 }
-function closeMenu() { const m = $('#menu'); if (m) m.classList.add('hide'); menuSlot = -1; stage.select(-1); }
+function closeMenu() { const m = $('#menu'); if (m) m.classList.add('hide'); menuSlot = -1; pending = ''; stage.select(-1); if (rallySlot < 0) stage.range(null); }
 function menuAct(kind, x) {
-  const s = menuSlot; if (s < 0 || !game) return; let ok = false;
-  if (kind === 'build') ok = game.build(s, x, 6); else if (kind === 'up') ok = game.upgrade(s, x || undefined); else if (kind === 'sell') ok = game.sell(s); else if (kind === 'rot') { game.rotate(s, game.tools[s].dir + 1); ok = true; }
-  if (!ok) return; audio.sfx('rustle'); if (game.dirty) game.relink();
-  for (const e of game.events) stage.onEvent(e, game); game.events.length = 0;
-  if (kind === 'sell') closeMenu(); else openMenu(s);
-}
-function showCards() {
-  const c = game.offer; if (!c) return; closeMenu(); $('#tip')?.classList.add('hide'); tipT = 0;
-  modal(`<h2>${game.wave}웨이브를 넘겼어요</h2><div class="cards">${c.map((x, i) => { const [k, fx] = CARD_UI[x.id] || ['*star', x.desc]; return paper(`${cardIc(k)}<b>${x.name}</b><span>${fx}</span>`, 'pick', { tag: 'button', attrs: `data-a="${i}"` }); }).join('')}</div>${game.rerolls > 0 ? `<div class="row">${btn(`다시 뽑기 <span class="num">${game.rerolls}</span>`, 're', 'plain')}</div>` : ''}`,
-    (a, el) => { if (a === 're') { game.reroll(); el.remove(); showCards(); return; } if (game.pickCard(+a)) { audio.sfx('sparkle'); el.remove(); showTip(TIPS[game.wave + 1] || '다음 웨이브를 준비해요', 7); } }, 'cardmodal');
+  const s = menuSlot; if (s < 0 || !game) return; const key = kind + ':' + (x || '');
+  if (kind === 'rally') { closeMenu(); rallySlot = s; stage.range({ x: SLOTS[s].x, z: SLOTS[s].z, r: TOWERS.barracks.range }); showTip('등잔병이 모일 곳을 눌러요.', 6); return; }
+  if (pending !== key) { pending = key; openMenu(s); return; }
+  const ok = kind === 'build' ? game.build(s, x) : kind === 'up' ? game.upgrade(s, x || undefined) : game.sell(s); pending = '';
+  if (!ok) { openMenu(s); showTip('빛조각이 모자라요.', 3); return; } audio.sfx('rustle');
+  for (const e of game.events) stage.onEvent(e, game); game.events.length = 0; closeMenu();
 }
 function showPause() {
   if (!playing || paused) return; paused = true;
@@ -165,65 +164,56 @@ function showPause() {
     (a, el) => { if (a === 'set') { showSettings(); return; } el.remove(); paused = false; if (a === 'quit') { bank(); showTitle(); } });
 }
 function showEnd() {
-  const won = game.phase === 'won', r = bank() ?? { cleared: reached(), stars: 0, gain: 0, score: 0 }; closeMenu(); for (const m of document.querySelectorAll('.modal')) m.remove();
-  const body = won ? `<h2>동이 텄어요</h2><div class="stars">${[1, 2, 3].map(i => ic('star', i <= r.stars ? 'on' : '')).join('')}</div><p>남은 창문 <span class="num">${game.windows}</span>${r.gain ? ` · 별 <span class="num">+${r.gain}</span>` : ''}</p>`
-    : `<h2>창문이 모두 꺼졌어요</h2><p><span class="num">${r.cleared}</span>웨이브까지 버텼어요${game.endless ? ' · 폭풍의 밤' : ''}</p>`;
-  modal(`${body}<p id="rankline">${save.nick ? (r.cleared ? '순위 올리는 중' : '') : '이름을 정하면 순위에 올라가요'}</p><div class="row">${btn('처음으로', 'home', 'plain')}${won ? btn('폭풍의 밤', 'storm') : btn('다시', 'again')}</div>`,
-    (a, el) => { el.remove();
-      if (a === 'storm') { submitted = false; playing = true; endT = -1; stage.st.dawnTarget = 0; game.continueEndless(); audio.setMood('night'); showCards(); return; }
-      const go = () => (a === 'again' ? startRun() : showTitle());
+  const won = game.phase === 'won', r = bank() ?? { cleared: reached(), stars: 0, gain: 0, score: 0 }; closeMenu(); hideTip(); for (const m of document.querySelectorAll('.modal')) m.remove();
+  const body = won ? `<h2>동이 텄어요</h2><div class="stars">${[1, 2, 3].map(i => ic('star', i <= r.stars ? 'on' : '')).join('')}</div><p>남은 창문 <span class="num">${game.windows}</span> · 별 <span class="num">+${r.gain}</span></p>`
+    : `<h2>창문이 모두 꺼졌어요</h2><p><span class="num">${r.cleared}</span>웨이브까지 버텼어요</p>`;
+  modal(`${body}<p id="rankline">${save.nick ? (r.cleared ? '순위 올리는 중' : '') : '이름을 정하면 순위에 올라가요'}</p><div class="row">${btn('처음으로', 'home', 'plain')}${btn('다시', 'again')}</div>`,
+    (a, el) => { el.remove(); const go = () => (a === 'again' ? startRun() : showTitle());
       if (!save.asked) askNick(() => { if (save.nick && r.cleared && !AUTO) net.submitScore(save.pid, save.nick, r.score).catch(() => {}); go(); }); else go(); });
 }
 function updateHud(dt) {
   const hud = $('#hud'); if (!hud || !game) return;
-  const key = [game.wave, game.windows, game.shards, game.phase, Math.ceil(game.breakT), game.endless].join();
+  const key = [game.wave, game.windows, game.shards, game.phase, Math.round(Math.max(0, game.breakT) * 1.5)].join();
   if (key !== hudKey) { hudKey = key;   // only touch the paper notes when a number changes
     const set = (id, html) => { const n = $(id + ' .paper'); if (n.innerHTML !== html) { n.innerHTML = html; n.parentElement.classList.remove('bump'); void n.offsetWidth; n.parentElement.classList.add('bump'); } };
-    set('#n-wave', `${moonIc(Math.max(1, game.wave) / LAST_WAVE)}<span class="lbl">웨이브</span><span class="num">${Math.max(1, game.wave)}</span>${game.endless ? '' : ` / <span class="num">${LAST_WAVE}</span>`}`);
+    set('#n-wave', `${moonIc(Math.max(1, game.wave) / LAST_WAVE)}<span class="lbl">웨이브</span><span class="num">${Math.max(1, game.wave)}</span> / <span class="num">${LAST_WAVE}</span>`);
     set('#n-win', `${ic('house')}<span class="lbl">창문</span><span class="num">${game.windows}</span>`); set('#n-shard', `${ic('star')}<span class="lbl">빛조각</span><span class="num">${game.shards}</span>`);
-    const call = $('#call'), want = game.phase === 'break' ? (game.wave === 0 ? '첫 웨이브 부르기' : `다음 웨이브 ${ic('star')}<span class="num">+${Math.round(Math.max(0, game.breakT) * 2.5 * game.m.early)}</span>`) : '';
-    if (call.dataset.t !== want) { call.dataset.t = want; call.innerHTML = want ? btn(want, 'call', 'plain') : ''; }
+    const call = $('#call'), want = game.phase === 'break' ? (game.wave === 0 ? '웨이브 시작' : `다음 ${ic('star')}<span class="num">+${Math.round(Math.max(0, game.breakT) * 1.5)}</span>`) : '';
+    if (call.dataset.t !== want) { call.dataset.t = want; call.innerHTML = want ? btn(want, 'call', game.wave === 0 ? '' : 'plain') : ''; }
     if (menuSlot >= 0) for (const b of hud.querySelectorAll('.mi')) { const c = b.dataset.m === 'build' ? game.cost(menuSlot, b.dataset.x) : b.dataset.m === 'up' ? game.cost(menuSlot) : 0; b.classList.toggle('poor', c > game.shards); } }
-  const fb = $('#flash'); $('#flr').setAttribute('y', (46 - 40 * game.charge).toFixed(1)); $('#flr').setAttribute('height', (40 * game.charge).toFixed(1)); fb.classList.toggle('ready', game.canFlash());
+  const veil = (id, k) => { const b = $(id); if (b) { $('.veil2', b).style.height = (clamp(k) * 100).toFixed(0) + '%'; b.classList.toggle('ready', k <= 0); } };
+  veil('#sk-flash', game.cd.flash / (SKILLS.flash.cd * game.m.skill)); veil('#sk-rein', game.cd.rein / (SKILLS.rein.cd * game.m.skill)); veil('#sk-hero', game.hero.dead ? 1 : game.cd.hero / SKILLS.hero.cd);
+  const hb = $('#sk-hero'); hb.classList.toggle('down', game.hero.dead); hb.style.setProperty('--hp', clamp(game.hero.hp / game.hero.max).toFixed(2));
   $('[data-a=note]', hud).style.opacity = save.set.music ? 1 : 0.5;
   if (tipT > 0) { tipT -= dt; const tip = $('#tip'); if (tipT <= 0) tip.classList.add('hide'); else tip.style.opacity = Math.min(1, tipT); }
   if (DEBUG) { const i = stage.info(); $('#dbg').textContent = `적 ${game.enemies.length} · ${Math.round(i.fps)}fps · 해상도 ${i.pixelRatio.toFixed(2)} · 호출 ${i.calls}`; }
 }
 
-// ---------- input on the stage: drag steers the beam, a tap on a spot opens its menu (flash is the lamp button only) ----------
+// ---------- input on the stage: a tap on a spot opens its menu, a tap on open ground sends the keeper there ----------
 frame.addEventListener('pointerdown', e => {
-  if (!playing || paused || !game || e.target.closest('button, .modal')) return; audio.unlock();
+  if (!playing || paused || !game || game.done || e.target.closest('button, .modal')) return; audio.unlock();
+  const p = stage.pickGround(e.clientX, e.clientY);
+  if (aiming) { if (p) { if (aiming === 'flash') game.flash(p.x, p.z); else game.reinforce(p.x, p.z); } aim(''); return; }
+  if (rallySlot >= 0) { if (p) game.setRally(rallySlot, p.x, p.z); rallySlot = -1; stage.range(null); hideTip(); return; }
   const slot = stage.slotAt(e.clientX, e.clientY, game);
-  if (menuSlot >= 0 && slot !== menuSlot) { closeMenu(); if (slot < 0) return; }
-  if (slot >= 0) hold = { slot, x: e.clientX, y: e.clientY, moved: false };
-  else { const p = stage.pickGround(e.clientX, e.clientY); if (p) { game.setAim(p.x, p.z); hold = { aim: true, x: e.clientX, y: e.clientY }; } }
-  try { frame.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events */ }
+  if (menuSlot >= 0) { const was = menuSlot; closeMenu(); if (slot < 0 || slot === was) return; }
+  if (slot >= 0) { openMenu(slot); audio.sfx('tap'); return; }
+  if (p && game.moveHero(p.x, p.z)) stage.onEvent({ type: 'go', x: game.hero.home.x, z: game.hero.home.z }, game);
 });
-frame.addEventListener('pointermove', e => {
-  if (!hold || !game) return; const far = Math.hypot(e.clientX - hold.x, e.clientY - hold.y);
-  if (hold.aim) { const p = stage.pickGround(e.clientX, e.clientY); if (p) game.setAim(p.x, p.z); }
-  else if (far > 16 && game.tools[hold.slot] && DIRECTED[game.tools[hold.slot].type]) { const p = stage.pickGround(e.clientX, e.clientY), s = SLOTS[hold.slot]; if (p) { game.rotate(hold.slot, Math.round(Math.atan2(p.z - s.z, p.x - s.x) / (Math.PI / 4))); hold.moved = true; if (menuSlot >= 0) closeMenu(); } }
-});
-const endHold = () => { if (!hold || !game) { hold = null; return; }
-  if (hold.aim) game.releaseAim();
-  else if (!hold.moved && !paused && game.phase !== 'cards' && !$('.modal')) { if (menuSlot === hold.slot) closeMenu(); else { openMenu(hold.slot); audio.sfx('tap'); } }
-  hold = null; };
-frame.addEventListener('pointerup', endHold); frame.addEventListener('pointercancel', endHold);
-addEventListener('keydown', e => { if (e.key === ' ' && playing && game && !paused) { e.preventDefault(); game.flash(); } if (e.key === 'Escape') showPause(); });
+addEventListener('keydown', e => { if (e.key === 'Escape') showPause(); });
 document.addEventListener('visibilitychange', () => { audio.background(document.hidden); if (document.hidden && playing && !paused && !AUTO) showPause(); });
 
 // ---------- loop ----------
 let popT = 0;
 function advance(dt) {
   if (stage.st.freeze > 0 || !game) return;
-  bot?.step(); game.step(dt);
+  bot?.step(dt); game.step(dt);
   for (const e of game.events) { stage.onEvent(e, game);
-    if (e.type === 'kill') { if (performance.now() - popT > 45) { popT = performance.now(); audio.sfx('pop'); } } else if (e.type === 'flash') audio.sfx('flash'); else if (e.type === 'leak') audio.sfx('snuff');
-    else if (e.type === 'bell') audio.sfx('bell'); else if (e.type === 'zap') audio.sfx('zap'); else if (e.type === 'won') audio.sfx('win'); else if (e.type === 'lost') audio.sfx('lose');
-    else if (e.type === 'wave' && TIPS[e.n] && e.n > 1) showTip(TIPS[e.n], 7);
-    else if (e.type === 'bonus') audio.sfx('sparkle'); else if (e.type === 'cleared') audio.sfx('sparkle'); }
+    if (e.type === 'kill' || e.type === 'boom') { if (performance.now() - popT > 45) { popT = performance.now(); audio.sfx('pop'); } } else if (e.type === 'flash') audio.sfx('flash'); else if (e.type === 'leak' || e.type === 'heroDown') audio.sfx('snuff');
+    else if (e.type === 'hskill') audio.sfx('bell'); else if (e.type === 'reinforce') audio.sfx('rustle'); else if (e.type === 'won') audio.sfx('win'); else if (e.type === 'lost') audio.sfx('lose');
+    else if (e.type === 'wave') { if (TIPS[e.n] && e.n > 1) showTip(TIPS[e.n], 7); else if (e.n === 1) hideTip(); }
+    else if (e.type === 'bonus' || e.type === 'heroUp') audio.sfx('sparkle'); }
   game.events.length = 0;
-  if (game.phase === 'cards' && !$('.cardmodal') && !bot) showCards();
   if (game.done && endT < 0 && playing) endT = game.phase === 'won' ? 3.4 : 2.2;
 }
 let last = performance.now();
@@ -267,14 +257,14 @@ window.__ll = {
     stage.st.probe = true; const N = Math.round(seconds * fps), dt = 1 / fps, L = [], blackAt = []; let spikes = 0, maxD = 0, black = 0, worst = -1;
     for (let i = 0; i < N; i++) {
       if (i === Math.round(N * 0.25)) stage.setScale(0.7); if (i === Math.round(N * 0.45)) stage.setScale(0.55); if (i === Math.round(N * 0.6)) stage.setScale(1);
-      const frozen = (i > N * 0.3 && i < N * 0.36) || (game && game.phase === 'cards');          // a pause, and any card sheet: the picture must hold
+      const frozen = i > N * 0.3 && i < N * 0.36;          // a pause, and any card sheet: the picture must hold
       if (i === Math.round(N * 0.3)) showPause(); if (i === Math.round(N * 0.36)) { for (const m of document.querySelectorAll('.modal')) m.remove(); paused = false; }
-      if (game && game.phase === 'cards' && i % 20 === 0) { if (!$('.cardmodal')) showCards(); else { game.pickCard(0); $('.cardmodal')?.remove(); } }
       if (!frozen && game && !game.done) { stage.st.freeze = 0; advance(dt); }
       stage.frame(frozen ? 0 : dt, game, dt); const l = luma(); L.push(l);
       if (l < 0.004) { black++; if (blackAt.length < 24) blackAt.push(i); }
       if (i > 0) { const d = Math.abs(l - L[i - 1]); if (d > maxD) { maxD = d; worst = i; } if (d > 0.04 && d > L[i - 1] * 0.3) spikes++; }
     }
+    stage.st.probe = false;
     return { frames: N, spikes, black, blackAt, maxDelta: +maxD.toFixed(4), worstFrame: worst, meanLuma: +(L.reduce((a, b) => a + b, 0) / N).toFixed(3), minLuma: +Math.min(...L).toFixed(4), wave: game ? game.wave : 0 };
   },
 };

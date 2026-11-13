@@ -10,6 +10,10 @@ const SHEETS = {
   '../ref/waves.png': { wave_1: [70, 150, 2000, 592], wave_2: [80, 600, 2000, 870], wave_3: [70, 930, 2000, 1345] },
   '../ref/crag_a.png': { crag_a: [4, 230, 2044, 1900] },
   '../ref/crag_b.png': { crag_b: [4, 130, 2044, 1920] },
+  '../ref/gull.png': { gull: [200, 60, 1730, 1790] },
+  '../ref/guard.png': { guard: [160, 220, 1345, 1895] },
+  '../ref/watch.png': { watch: [146, 300, 850, 1905] },
+  '../ref/hut.png': { hut: [146, 146, 1775, 1905] },
 };
 (async () => {
   for (const [file, rects] of Object.entries(SHEETS)) {
