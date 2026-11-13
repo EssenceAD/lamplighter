@@ -5,7 +5,7 @@ import { clamp, WAVE_V, lampStats } from './sim.js';
 import { buildWorld } from './world.js';
 import { lookOf } from './looks.js';
 
-const LOOK_H = { w_ant: 1.25, w_horn: 1.25, w_ear: 1.2, e_fast: 0.8, e_fat: 2.3, e_color: 1.05, e_umb: 1.75, boss_0: 3.3, boss_1: 2.9, boss_2: 3.2, boss_3: 3.2, boss_4: 3.0 };
+const LOOK_H = { w_ant: 1.25, w_horn: 1.25, w_ear: 1.2, e_fast: 0.8, e_fat: 1.9, e_color: 1.05, e_umb: 1.75, boss_0: 3.3, boss_1: 2.9, boss_2: 3.2, boss_3: 3.2, boss_4: 3.0 };
 const EYES = { w_ant: [[0.36, 0.6], [0.64, 0.6]], w_horn: [[0.33, 0.54], [0.67, 0.54]], w_ear: [[0.37, 0.45], [0.63, 0.45]], e_fast: [[0.7, 0.38]], e_fat: [[0.37, 0.22], [0.66, 0.22]], e_color: [[0.4, 0.4], [0.6, 0.4]], e_umb: [[0.27, 0.47], [0.47, 0.47]],
   boss_0: [[0.38, 0.38], [0.62, 0.38]], boss_1: [[0.13, 0.52]], boss_2: [[0.38, 0.3], [0.62, 0.3]], boss_3: [[0.38, 0.32], [0.62, 0.32]], boss_4: [[0.43, 0.3], [0.57, 0.3]] };
 const TOOL_SHAPE = { mirror: ['t_mirror', 1.25], prism: ['t_prism', 1.0], lens: ['t_lens', 1.35], glass: ['t_glass', 1.15], jar: ['t_jar', 0.75] };
@@ -49,7 +49,7 @@ export async function createStage2D(frame, SHAPES, opt = {}) {
   }
   const pick = (cx, cy) => { const b = cv.getBoundingClientRect(), nx = ((cx - b.left) / b.width * 2 - 1) * tanV * aspect, ny = -((cy - b.top) / b.height * 2 - 1) * tanV;
     const d = [f[0] + r[0] * nx + u[0] * ny, f[1] + r[1] * nx + u[1] * ny, f[2] + r[2] * nx + u[2] * ny]; if (d[1] >= 0) return null; const t = -eye[1] / d[1]; return { x: eye[0] + d[0] * t, z: eye[2] + d[2] * t }; };
-  function slotAt(cx, cy, slots) { const p = pick(cx, cy); if (!p) return -1; let best = -1, bd = 0.85; slots.forEach((s, i) => { const d = Math.hypot(s.x - p.x, s.z + 0.35 - p.z); if (d < bd) { bd = d; best = i; } }); return best; }
+  function slotAt(cx, cy, slots) { const p = pick(cx, cy); if (!p) return -1; let best = -1, bd = 0.62; slots.forEach((s, i) => { const d = Math.hypot(s.x - p.x, s.z + 0.35 - p.z); if (d < bd) { bd = d; best = i; } }); return best; }
   const CH = [[1, 0.27, 0.12], [1, 0.62, 0.16], [0.99, 0.92, 0.74]].map(c => `rgb(${c.map(v => Math.round(v * 255))})`), FEST = ['#ff5555', '#ffcc33', '#66e6b3', '#99b3ff', '#ff99e6'];
 
   function frameUpdate(dt, sim) {
@@ -86,7 +86,8 @@ export async function createStage2D(frame, SHAPES, opt = {}) {
       for (const e of sim.enemies) { if (!live.has(e.id)) live.set(e.id, { look: lookOf(e) }); draw.push({ z: e.z, e }); } }
     for (const gh of ghosts) draw.push({ z: gh.z, gh });
     if (town) { const spots = [...houses.map(h => [h.x + 0.9 * mx * (h.x * mx > 0 ? -1 : 1), h.z + 0.5]), [-1.4 * mx, -1.4], [1.6 * mx, 3.6]];
-      [['v_old', 0, 0], ['v_woman', 1, 1], ['v_child', 5, 5], ['v_music', 2, 3], ['v_music2', 3, 4], ['v_old', 6, 6], ['v_woman', 4, 2]].forEach(([n, si, vi], k) => { if (town.lit.has(VILLAGE_IDS[vi])) draw.push({ z: spots[si][1], folk: n, x: spots[si][0], k }); }); }
+      [['v_old', 0], ['v_woman', 1], ['v_child', 5], ['v_music', 2], ['v_music2', 3], ['v_old', 6], ['v_woman', 4]].forEach(([n, si], k) => { if (town.lit.has(si < 5 ? 'h' + si : si === 5 ? 'well' : 'plaza')) draw.push({ z: spots[si][1], folk: n, x: spots[si][0], k }); });
+      for (const [id, x, z] of [['well', -2.2 * mx, -1.9], ['plaza', 3.3 * mx, 3.4]]) if (town.lit.has(id)) { const c = proj(x, 0.9, z), rr = c.s * 0.8, rg = g.createRadialGradient(c.x, c.y, 0, c.x, c.y, rr); rg.addColorStop(0, 'rgba(255,190,100,.7)'); rg.addColorStop(1, 'rgba(255,190,100,0)'); g.fillStyle = rg; g.beginPath(); g.arc(c.x, c.y, rr, 0, 6.283); g.fill(); } }
     draw.sort((a, b) => a.z - b.z);
     const dark = `rgb(${mix([22, 22, 44], [48, 36, 58], D)})`;
     for (const d of draw) {

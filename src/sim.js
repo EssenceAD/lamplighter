@@ -150,7 +150,7 @@ export class Sim {
     if (dmg <= 0) return;
     e.hp -= dmg; e.lit = 0.2;
     if (e.hp <= 0 && !e.dead) {
-      e.dead = true; this.kills++; this.spark += ENEMIES[e.type].sparkle * this.sparkRate; const sp = Math.floor(this.spark); this.spark -= sp; this.sparkles += sp;   // sparkles drop now and then
+      e.dead = true; this.kills++; this.spark += (e.summoned ? 0 : ENEMIES[e.type].sparkle) * this.sparkRate; const sp = Math.floor(this.spark); this.spark -= sp; this.sparkles += sp;   // sparkles drop now and then
       this.ev('kill', { id: e.id, enemy: e.type, x: e.x, z: e.z, size: e.size, sparkle: sp, by: x });
     }
   }
@@ -221,7 +221,7 @@ export class Sim {
       // walk
       if (e.stun <= 0) e.s += e.spd * e.slow * dt;
       this.path.at(e.s, e);
-      if (e.summon) { e.summonT += dt; if (e.summonT >= e.summon.every) { e.summonT = 0; const c = this.spawn({ type: e.summon.type, v: this.nextId }); c.s = Math.max(0, e.s - 0.9); this.path.at(c.s, c); } }
+      if (e.summon) { e.summonT += dt; if (e.summonT >= e.summon.every) { e.summonT = 0; const c = this.spawn({ type: e.summon.type, v: this.nextId }); c.summoned = true; c.s = Math.max(0, e.s - 0.9); this.path.at(c.s, c); } }
       if (e.s >= this.path.total) {
         e.dead = true; e.leak = true; const n = ENEMIES[e.type].windows || 1; this.leaked++;
         for (let i = 0; i < n && this.windows > 0; i++) { this.windows--; this.ev('window', { left: this.windows }); }

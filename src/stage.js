@@ -18,7 +18,7 @@ const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * 
 const LOOK = {
   w_ant: { h: 1.25, eyes: [[0.36, 0.6], [0.64, 0.6]], r: 0.075 }, w_horn: { h: 1.25, eyes: [[0.33, 0.54], [0.67, 0.54]], r: 0.085 },
   w_ear: { h: 1.2, eyes: [[0.37, 0.45], [0.63, 0.45]], r: 0.08 }, e_fast: { h: 0.8, eyes: [[0.7, 0.38]], r: 0.1 },
-  e_fat: { h: 2.3, eyes: [[0.37, 0.22], [0.66, 0.22]], r: 0.05 }, e_color: { h: 1.05, eyes: [[0.4, 0.4], [0.6, 0.4]], r: 0.1 },
+  e_fat: { h: 1.9, eyes: [[0.37, 0.22], [0.66, 0.22]], r: 0.05 }, e_color: { h: 1.05, eyes: [[0.4, 0.4], [0.6, 0.4]], r: 0.1 },
   e_umb: { h: 1.75, eyes: [[0.27, 0.47], [0.47, 0.47]], r: 0.05 },
   boss_0: { h: 3.3, eyes: [[0.38, 0.38], [0.62, 0.38]], r: 0.05 }, boss_1: { h: 2.9, eyes: [[0.13, 0.52]], r: 0.05 },
   boss_2: { h: 3.2, eyes: [[0.38, 0.3], [0.62, 0.3]], r: 0.055 }, boss_3: { h: 3.2, eyes: [[0.38, 0.32], [0.62, 0.32]], r: 0.055 },
@@ -50,6 +50,7 @@ export async function createStage(frame, SHAPES, opt = {}) {
   const camera = new THREE.PerspectiveCamera(36, 9 / 16, 0.5, 80);
   camera.position.set(0, 10.5, 15); camera.lookAt(0, 2.2, -1.3);
 
+  try {
   const TL = new THREE.TextureLoader();
   const tex = (url, srgb = true, repeat = 1) => new Promise((res, rej) => TL.load(url, t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; res(t); }, undefined, rej));
   const [paperW, paperWN, paperCreaseN, pCircle, pSpark, pFlare, pLight, pStar, pSmoke] = await Promise.all([
@@ -170,9 +171,9 @@ export async function createStage(frame, SHAPES, opt = {}) {
 
   // ---------- the village (rebuilt per chapter) ----------
   const AMBER = new THREE.Color(1.15, 0.56, 0.15);
-  function glowPanes(g, test, color, z = -0.02) {
+  function glowPanes(g, test, color, z = -0.02, k = 1) {
     const mat = new THREE.MeshBasicMaterial({ color }); mat.userData.base = mat.color.clone();
-    for (const h of g.userData.holes) { if (!test(h)) continue; const p = new THREE.Mesh(new THREE.PlaneGeometry(h.w + 0.03, h.h + 0.03), mat); p.position.set(h.x, h.y, z); g.add(p); }
+    for (const h of g.userData.holes) { if (!test(h)) continue; const p = new THREE.Mesh(new THREE.PlaneGeometry((h.w + 0.03) * k, (h.h + 0.03) * k), mat); p.position.set(h.x, h.y, z); g.add(p); }
     return mat;
   }
   const HOUSE_SET = [['house_a', 2.0, 0.42], ['house_d', 3.1, 0.2], ['house_c', 1.5, 0.42], ['house_b', 1.7, 0.42], ['house_e', 1.35, 0.42]];
@@ -213,7 +214,8 @@ export async function createStage(frame, SHAPES, opt = {}) {
     // villagers (shown in the village view once their building is lit)
     const F = [['v_old', 1.05], ['v_woman', 1.0], ['v_child', 1.0], ['v_music', 1.15], ['v_music2', 1.1], ['v_old', 1.0], ['v_woman', 1.05]];
     const spots = [...houses.map(h => [h.position.x + 0.9 * mx * (h.position.x * mx > 0 ? -1 : 1), h.position.z + 0.5]), [extras.well.position.x + 0.8 * mx, -1.4], [1.6 * mx, 3.6]];
-    folk = [0, 1, 5, 2, 3, 6, 4].map((si, k) => { const g = cutout(F[k][0], { height: F[k][1], mat: M.folk, step: 6, rough: 1.4, cast: true, receive: false }); g.position.set(spots[si][0], 0, spots[si][1]); g.visible = false; g.userData.ph = k * 1.3; village.add(g); return g; });
+    folk = [0, 1, 5, 2, 3, 6, 4].map((si, k) => { const g = cutout(F[k][0], { height: F[k][1], mat: M.folk, step: 6, rough: 1.4, cast: true, receive: false }); g.position.set(spots[si][0], 0, spots[si][1]); g.visible = false; g.userData.ph = k * 1.3; g.userData.vid = si < 5 ? 'h' + si : si === 5 ? 'well' : 'plaza'; village.add(g); return g; });
+    extras.lamps = [[extras.well, 'well', 1.2], [extras.plaza, 'plaza', 0.9]].map(([o, id, y]) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: pLight, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); s.position.set(o.position.x, y, o.position.z + 0.15); s.scale.setScalar(1.3); s.visible = false; s.userData.vid = id; village.add(s); return s; });
     bakeShadows = 3;
   }
   // order matches levels.VILLAGE: h0 h1 well h2 h3 plaza h4
@@ -388,11 +390,12 @@ export async function createStage(frame, SHAPES, opt = {}) {
   const toolObjs = [], lightObjs = [];
   const PRISM_COLS = [[1.0, 0.5, 0.45], [1.0, 0.95, 0.6], [0.5, 0.75, 1.0]];
   function syncTools(sim) {
-    for (const o of toolObjs) scene.remove(o.g); toolObjs.length = 0; for (const o of lightObjs) scene.remove(o); lightObjs.length = 0;
+    const bornAt = new Map(toolObjs.map(o => [o.slot + o.type, o.born]));
+    for (const o of toolObjs) { scene.remove(o.g); o.g.userData.glow?.dispose(); } toolObjs.length = 0; for (const o of lightObjs) { scene.remove(o); o.material.dispose(); } lightObjs.length = 0;
     sim.tools.forEach((t, i) => { if (!t) return; const [shape, h] = TOOL_SHAPE[t.type], s = sim.level.slots[i];
       const g = cutout(shape, { height: h, mat: M.prop, step: 6, rough: 1.2, cast: false, receive: false });
-      const col = TOOL_COL[t.type]; g.userData.glow = glowPanes(g, q => q.pw > 12 && q.ph > 12, new THREE.Color(col[0] * 0.9, col[1] * 0.9, col[2] * 0.9));
-      g.position.set(s.x, 0, s.z + 0.05); scene.add(g); toolObjs.push({ g, slot: i, born: clock }); });
+      const col = TOOL_COL[t.type]; g.userData.glow = glowPanes(g, q => q.pw > 12 && q.ph > 12, new THREE.Color(col[0] * 0.9, col[1] * 0.9, col[2] * 0.9), -0.02, 0.66);   // pane kept inside round frames
+      g.position.set(s.x, 0, s.z + 0.05); scene.add(g); toolObjs.push({ g, slot: i, type: t.type, born: bornAt.get(i + t.type) ?? clock }); });
     let k = 0;
     for (const L of sim.lights) { const t = sim.tools[L.slot]; let col = TOOL_COL[t.type]; if (t.type === 'prism') col = PRISM_COLS[k++ % 3];
       const m = new THREE.Mesh(L.kind === 'seg' ? segGeo : discGeo, lightMat()); m.material.uniforms.uCol.value.setRGB(col[0], col[1], col[2]); m.material.uniforms.uDisc.value = L.kind === 'disc' ? 1 : 0;
@@ -449,7 +452,7 @@ export async function createStage(frame, SHAPES, opt = {}) {
     for (const [, m] of live) freeMonster(m); live.clear(); for (const g of ghosts) freeMonster(g.m); ghosts.length = 0;
     scrapData.length = 0; st.dawn = 0; st.dawnTarget = 0; st.flashT = -1; st.lost = 0; st.gather = 0; st.town = null; st.festival = 0;
     for (const h of houses) { h.userData.on = true; h.userData.outT = -1; }
-    for (const f of folk) f.visible = false;
+    for (const f of folk) f.visible = false; for (const s of extras.lamps ?? []) s.visible = false;
     if (sim) { const P = lampStats(sim.up); st.lampLvl = sim.up.lamp || 0; st.radius = P.radius; beamAim.set(sim.aim.x, 0, sim.aim.z); syncTools(sim); slotMarks.forEach((d, i) => { d.visible = i < sim.level.slots.length; }); }
     else { syncTools({ tools: [], lights: [], level: { slots: [] } }); slotMarks.forEach(d => { d.visible = false; }); }
     bakeShadows = 2;
@@ -469,7 +472,7 @@ export async function createStage(frame, SHAPES, opt = {}) {
     else if (e.type === 'lost') st.lost = 0.001;
   }
   function pickGround(cx, cy) { const r = renderer.domElement.getBoundingClientRect(); ndc.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, _v) ? { x: _v.x, z: _v.z } : null; }
-  function slotAt(cx, cy, slots) { const p = pickGround(cx, cy); if (!p) return -1; let best = -1, bd = 0.85; slots.forEach((s, i) => { const d = Math.hypot(s.x - p.x, s.z + 0.35 - p.z); if (d < bd) { bd = d; best = i; } }); return best; }
+  function slotAt(cx, cy, slots) { const p = pickGround(cx, cy); if (!p) return -1; let best = -1, bd = 0.62; slots.forEach((s, i) => { const d = Math.hypot(s.x - p.x, s.z + 0.35 - p.z); if (d < bd) { bd = d; best = i; } }); return best; }
   function toScreen(x, y, z) { _v.set(x, y, z).project(camera); return { x: (_v.x * 0.5 + 0.5) * W, y: (-_v.y * 0.5 + 0.5) * H }; }
   function setTown(lit, festival) { reset(null); st.town = { lit: new Set(lit) }; st.festival = festival ? 0.001 : 0; }
   function celebrate() { for (let k = 0; k < 4; k++) burst(new THREE.Vector3((Math.random() - 0.5) * 5, 2.5 + Math.random() * 2, -1 + Math.random() * 3), 1.6, 12, FEST_COLS, 14); }
@@ -518,7 +521,7 @@ export async function createStage(frame, SHAPES, opt = {}) {
     let hitPulse = 0;
     if (sim && sim.phase !== 'prep') { beamAim.set(sim.aim.x, 0, sim.aim.z); for (const e of sim.enemies) if (e.lit > 0.12) hitPulse = 1; }
     else { const tx = towerPos.x + Math.sin(ti * 0.42 + 0.6) * 2.5, tz = towerPos.z + 6 + Math.sin(ti * 0.27 + 2) * 2.6; beamAim.lerp(_v.set(tx, 0, tz), 1 - Math.exp(-dt * 0.9)); }
-    const up = 1 + 0.2 * st.lampLvl;                                    // upgrades: visibly thicker, brighter light
+    const up = 1 + 0.09 * st.lampLvl;                                    // upgrades: visibly thicker, brighter light
     const bI = (1 - 0.55 * gather) * (tf >= 0 ? sstep(0.3, 1.2, tf) * 0.4 + 0.6 : 1) * lampOn * (0.92 + 0.08 * Math.sin(ti * 1.7)) * (1 + 0.25 * hitPulse);
     const flick = 0.94 + 0.06 * Math.sin(ti * 9.1) * Math.sin(ti * 5.3), glow = (1 + flashSpike * 2.2 + after * 0.9) * lampOn * flick;
     const BEAM = 390 * up, GLOW = 38;
@@ -528,7 +531,7 @@ export async function createStage(frame, SHAPES, opt = {}) {
     beam.angle = clamp(Math.atan(st.radius * 1.25 / dist) * (1 - 0.3 * gather), 0.06, 0.6); beam.target.position.copy(beamAim);
     _t.normalize(); _r.crossVectors(_t, _u.set(0, 1, 0)).normalize(); _u.crossVectors(_r, _t).normalize();
     const rad = Math.tan(beam.angle) * len; cone.position.copy(LANTERN); cone.lookAt(beamAim); cone.scale.set(rad, rad, len);
-    coneMat.uniforms.uI.value = (0.8 + 0.14 * st.lampLvl) * bI; coneMat.uniforms.uTime.value = ti; coneMat.uniforms.uCol.value.setRGB(SKIN.r, SKIN.g * 0.92, SKIN.b * 0.75);
+    coneMat.uniforms.uI.value = (0.8 + 0.1 * st.lampLvl) * bI; coneMat.uniforms.uTime.value = ti; coneMat.uniforms.uCol.value.setRGB(SKIN.r, SKIN.g * 0.92, SKIN.b * 0.75);
     const du = dustMat.uniforms; du.uO.value.copy(LANTERN); du.uDir.value.copy(_t); du.uRight.value.copy(_r); du.uUp.value.copy(_u); du.uLen.value = len; du.uRad.value = rad; du.uI.value = 2.4 * bI; du.uTime.value = ti;
     const cu = castMat.uniforms; cu.uDir.value.copy(_t); cu.uCone.value = Math.cos(beam.angle); cu.uPen.value = Math.cos(beam.angle * (1 - beam.penumbra)); cu.uA.value = clamp(bI + 0.4) * (1 - D);
     const hs = 0.55 * Math.sqrt(lampOn) + flashSpike * 2.6 + after * 0.25;
@@ -554,7 +557,8 @@ export async function createStage(frame, SHAPES, opt = {}) {
     });
     for (const s of smoke) { const age = clock - s.userData.t0, life = 3.4; if (age > 0 && age < life && s.userData.o) { const a = age / life, o = s.userData.o;
       s.position.set(o.x + Math.sin(age * 1.7 + s.id) * 0.05 * age + 0.06 * age, o.y + 0.62 * age, o.z); s.scale.setScalar(0.16 + 0.27 * age); s.material.opacity = 0.8 * sstep(0, 0.12, a) * (1 - a) * (1 - a); } else s.material.opacity = 0; }
-    if (inTown) folk.forEach((f, k) => { const id = VILLAGE_IDS[[0, 1, 5, 3, 4, 6, 2][k]] ?? 'h0'; f.visible = town.lit.has(id);
+    for (const s of extras.lamps ?? []) { s.visible = inTown && town.lit.has(s.userData.vid); s.material.opacity = (0.75 + 0.1 * Math.sin(ti * 5 + s.position.x)) * (1 - 0.7 * D); }
+    if (inTown) folk.forEach((f, k) => { f.visible = town.lit.has(f.userData.vid);
       const hop = st.festival > 0 ? Math.abs(Math.sin(ti * 4 + f.userData.ph)) * 0.22 : Math.max(0, Math.sin(ti * 1.2 + f.userData.ph)) * 0.03; f.position.y = hop; f.rotation.z = st.festival > 0 ? Math.sin(ti * 4 + f.userData.ph) * 0.12 : 0; });
     if (st.festival > 0 && frameNo % 50 === 0) celebrate();
 
@@ -588,11 +592,12 @@ export async function createStage(frame, SHAPES, opt = {}) {
     // keep the frame rate: under 45 fps for a while -> drop the resolution a step
     if (!document.hidden && dt > 0) { st.fpsAcc += dt; st.fpsN++; if (st.fpsAcc > 0.5) { st.fps = st.fpsN / st.fpsAcc; st.fpsAcc = 0; st.fpsN = 0; }
       if (dt > 1 / 45) { st.slow += dt; st.fast = 0; } else { st.fast += dt; if (st.fast > 1) st.slow = 0; }
-      if (st.slow > 1.2) { st.slow = 0; if (pixelRatio > 0.75) { pixelRatio = Math.max(0.75, pixelRatio - 0.2); resize(); } else st.low = true; } }
+      if (st.slow > 1.2) { st.slow = 0; if (pixelRatio > 0.75) { pixelRatio = Math.max(0.75, pixelRatio - 0.2); resize(); } else if (st.fps < 22) st.low = true; } }
   }
   const popMeshes = [];
   return { kind: '3d', setChapter, reset, onEvent, frame: frameUpdate, pickGround, slotAt, toScreen, setTown, celebrate, resize, st,
     setSkin: c => SKIN.setRGB(c[0], c[1], c[2]), setGather: k => { st.gather = k; }, get world() { return world; }, get pixelRatio() { return pixelRatio; },
     info: () => ({ tris: renderer.info.render.triangles, calls: renderer.info.render.calls, pixelRatio, fps: st.fps }), fadeIn: () => { st.fade = 0; },
     dispose: () => { removeEventListener('resize', resize); renderer.dispose(); renderer.domElement.remove(); } };
+  } catch (err) { renderer.dispose(); renderer.domElement.remove(); throw err; }
 }

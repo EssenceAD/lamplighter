@@ -24,9 +24,9 @@ const icon = name => { const S = SHAPES[name]; return `<svg viewBox="0 0 ${S.w} 
 const TOOL_ICON = { mirror: 't_mirror', prism: 't_prism', lens: 't_lens', glass: 't_glass', jar: 't_jar' };
 
 // ---------- the theatre: three.js, or the flat 2D fallback ----------
-let stage;
+let stage, making = null;
 async function makeStage(force2d) {
-  if (stage) stage.dispose();
+  if (stage) { stage.dispose(); stage = null; }
   if (!force2d && !save.set.low && !Q.has('2d')) {
     try { const { createStage } = await import('./stage.js'); stage = await createStage(frame, SHAPES, { chapter: 0 }); return; }
     catch (e) { console.warn('3D stage unavailable, using the 2D path', e); }
@@ -49,7 +49,7 @@ function nextNight() { for (let c = 0; c < CHAPTERS.length; c++) for (let s = 0;
 
 // ---------- game state ----------
 let sim = null, bot = null, level = null, playing = false, paused = false, speed = 1, selTool = null, endTimer = -1, ended = false;
-let viewCh = nextNight()[0], tab = 'night', hold = null, flashHold = -1, tipTimer = 0;
+let viewCh = nextNight()[0], tab = 'night', hold = null, flashHold = -1, tipTimer = 0, lastRes = null, silentEnd = false;
 
 function startNight(c, s, opt = {}) {
   const daily = opt.daily;
@@ -59,10 +59,12 @@ function startNight(c, s, opt = {}) {
   sim = new Sim({ path: world.path, tower: world.tower, level, upgrades: daily ? DAILY_UPGRADES : save.up, seed: (Date.now() & 0xffff) + 1 });
   bot = opt.bot ? new Bot(sim) : null;
   stage.reset(sim); stage.fadeIn(); stage.st.guideSlots = level.guide === 'tool';
-  selTool = level.tools[0] ?? null; playing = true; paused = false; ended = false; endTimer = -1; speed = opt.speed ?? 1;
+  selTool = level.tools[0] ?? null; playing = true; paused = false; ended = false; lastRes = null; endTimer = -1; speed = opt.speed ?? 1; guideOk = {};
   audio.setMood('menu'); showHud();
 }
 function finishNight() {
+  if (ended && lastRes) return lastRes;
+  ended = true; endTimer = -1;
   const won = sim.phase === 'won', stars = sim.stars, res = { won, stars, daily: !!level.daily, sparkles: 0, oil: 0, name: level.name };
   if (won && !level.daily) {
     res.sparkles = sim.sparkles + (stars === 3 ? Math.round(level.reward * 0.2) : 0);
@@ -70,9 +72,9 @@ function finishNight() {
     save.sparkles += res.sparkles; save.oil += res.oil; save.stars[level.id] = Math.max(prev, stars); persist();
   }
   if (level.daily) { res.score = sim.score; const d = save.daily[level.daily] || 0; if (res.score > d) { save.daily = { [level.daily]: res.score }; persist(); }
-    if (save.nick && won) net.submitScore(save.pid, save.nick, res.score).then(r => { res.rank = r; const el = $('#rankline'); if (el && r) el.textContent = `오늘 ${r}등`; }).catch(() => {}); }
-  playing = false; audio.setMood(won ? 'menu' : 'hush');
-  showResult(res);
+    if (save.nick && won) net.submitScore(save.pid, save.nick, res.score).then(r => { res.rank = r; const el = $('#rankline'); if (el) el.textContent = r ? `오늘 ${r}등` : '순위에 올렸어요'; }).catch(() => { const el = $('#rankline'); if (el) el.textContent = '순위를 올리지 못했어요. 나중에 다시 도전해 주세요.'; }); }
+  lastRes = res; playing = false; audio.setMood(won ? 'menu' : 'hush');
+  if (!silentEnd) showResult(res);
   return res;
 }
 
@@ -90,6 +92,8 @@ function showTitle() {
 const purse = () => `<div class="purse"><span>반짝이 <b>${save.sparkles}</b></span><span>기름 <b>${save.oil}</b></span><span>별 <b>${totalStars(save)}</b></span></div>`;
 const nav = () => `<div class="nav">${[['night', '밤'], ['lamp', '등불'], ['town', '마을'], ['friend', '친구']].map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${n}</button>`).join('')}</div>`;
 function showMap() {
+  if (making) return;
+  if (!Q.has('2d') && (stage.kind === '2d') !== !!save.set.low && !(stage.kind === '2d' && stage.forced)) { making = makeStage(save.set.low).then(() => { if (stage.kind === '2d' && !save.set.low) stage.forced = true; making = null; applySkin(); showMap(); }); return; }
   clearUi(); playing = false; sim = null; audio.setMood('menu');
   viewCh = clamp(viewCh, 0, CHAPTERS.length - 1);
   stage.setChapter(viewCh);
@@ -112,7 +116,7 @@ function showMap() {
     body = `<div style="height:38vh"></div><h3>마을 되살리기 · 기름으로 하나씩 밝혀요</h3>` + (all ? `<div class="card"><div class="t"><b>${save.festival[viewCh] ? '축제가 열렸어요' : '모두 밝혔어요!'}</b><small>마을 사람들이 돌아왔어요</small></div><button class="btn" data-a="fest">${save.festival[viewCh] ? '다시 보기' : '축제 열기'}</button></div>` : '')
       + VILLAGE.map((v, i) => `<div class="card ${i < nextI ? 'done' : ''}"><div class="t"><b>${v.name}</b><small>${i < nextI ? '불이 켜졌어요' : i === nextI ? '다음 차례' : '앞에서부터 밝혀요'}</small></div>${i === nextI ? `<button class="btn" data-lit="${v.id}" ${save.oil >= v.cost && open ? '' : 'disabled'}>기름 ${v.cost}</button>` : i < nextI ? '<small>✓</small>' : `<small>기름 ${v.cost}</small>`}</div>`).join('');
   } else {
-    body = `<div class="card"><div class="t"><b>${save.nick || '이름 없음'}</b><small>순위에 보이는 이름</small></div><button class="btn ghost" data-a="nick">바꾸기</button></div>
+    body = `<div class="card"><div class="t"><b>${escapeHtml(save.nick) || '이름 없음'}</b><small>순위에 보이는 이름</small></div><button class="btn ghost" data-a="nick">바꾸기</button></div>
       <h3>오늘의 밤 순위</h3><div id="rk-d"><div class="rank"><span>불러오는 중…</span></div></div><h3>주간 리그</h3><div id="rk-w"><div class="rank"><span>불러오는 중…</span></div></div>`;
   }
   const el = h(`<div class="screen ${tab === 'town' ? '' : 'veil'}"><div class="top"><button class="round" data-a="prev" ${viewCh ? '' : 'disabled style="opacity:.3"'}>‹</button><h2>${viewCh + 1}. ${ch.name}</h2><button class="round" data-a="next" ${viewCh < CHAPTERS.length - 1 ? '' : 'disabled style="opacity:.3"'}>›</button><button class="round" data-a="set">⚙</button></div>
@@ -123,11 +127,11 @@ function showMap() {
     else if (d.s != null) startNight(viewCh, +d.s);
     else if (d.up) { const u = UPGRADES.find(x => x.id === d.up), l = save.up[u.id] || 0; if (save.sparkles >= u.cost[l]) { save.sparkles -= u.cost[l]; save.up[u.id] = l + 1; persist(); audio.sfx('sparkle'); showMap(); } }
     else if (d.skin) { save.skin = d.skin; persist(); applySkin(); showMap(); }
-    else if (d.lit) { const v = VILLAGE.find(x => x.id === d.lit); if (save.oil >= v.cost) { save.oil -= v.cost; save.lit[viewCh] = [...litOf(viewCh), v.id]; persist(); audio.sfx('sparkle'); stage.celebrate?.(); showMap(); } }
+    else if (d.lit) { const v = VILLAGE.find(x => x.id === d.lit); if (save.oil >= v.cost) { save.oil -= v.cost; save.lit[viewCh] = [...litOf(viewCh), v.id]; persist(); audio.sfx('sparkle'); showMap(); stage.celebrate?.(); } }
     else if (d.a === 'fest') { save.festival[viewCh] = true; persist(); stage.setTown(litOf(viewCh), true); audio.setMood('festival'); showFestival(); }
     else if (d.a === 'prev') { viewCh--; showMap(); } else if (d.a === 'next') { viewCh++; showMap(); }
     else if (d.a === 'set') showSettings(); else if (d.a === 'nick') askNick(showMap);
-    else if (d.a === 'daily') startNight(0, 0, { daily: dailyLevel(net.today(), buildWorld(SHAPES, false).slots) });
+    else if (d.a === 'daily') startNight(0, 0, { daily: dailyLevel(net.today(), c => buildWorld(SHAPES, c % 2 === 1).slots) });
   };
   ui.append(el);
   if (tab === 'friend') loadRanks();
@@ -191,9 +195,11 @@ function updateHud(dt) {
 }
 function modal(html, on) { const el = h(`<div class="modal"><div class="sheet">${html}</div></div>`); el.onclick = e => { const t = e.target.closest('[data-a]'); if (t) { audio.unlock(); audio.sfx('tap'); on(t.dataset.a, el, t); } }; ui.append(el); return el; }
 function showPause() {
-  if (!playing) return; paused = true;
+  if (!playing || paused) return; paused = true;
   modal(`<h2>잠깐 멈춤</h2><p>${level.name} · ${level.tierName}</p><div class="row"><button class="btn" data-a="go">계속</button></div><div class="row"><button class="btn ghost" data-a="retry">다시</button><button class="btn ghost" data-a="set">설정</button><button class="btn ghost" data-a="quit">나가기</button></div>`,
-    (a, el) => { if (a === 'set') { showSettings(); return; } el.remove(); paused = false; if (a === 'retry') startNight(level.c, level.s, level.daily ? { daily: level } : {}); if (a === 'quit') showMap(); });
+    (a, el) => { if (a === 'set') { showSettings(); return; } el.remove(); paused = false;
+      if (a !== 'go' && sim && sim.phase === 'won' && !ended) { silentEnd = true; finishNight(); silentEnd = false; }   // leaving during the dawn still counts
+      if (a === 'retry') startNight(level.c, level.s, level.daily ? { daily: level } : {}); if (a === 'quit') showMap(); });
 }
 function showSettings() {
   const tog = (k, on) => `<button class="tog ${on ? 'on' : ''}" data-a="${k}" aria-label="${k}"></button>`;
@@ -202,10 +208,10 @@ function showSettings() {
     <div class="setrow"><span>효과음</span>${tog('sfx', save.set.sfx)}<input type="range" min="0" max="1" step="0.05" value="${save.set.sv}" data-v="sv"></div>
     <div class="setrow"><span>가벼운 화면</span>${tog('low', save.set.low)}<small style="flex:1;color:#5a4a35">느린 기기용 2D 화면</small></div>
     <p style="font-size:12px">등불지기 ${VERSION}</p><div class="row"><button class="btn" data-a="ok">닫기</button></div>`,
-    async (a, el, t) => {
+    (a, el, t) => {
       if (a === 'ok') { el.remove(); return; }
       save.set[a] = !save.set[a]; t.classList.toggle('on', save.set[a]); persist(); audio.configure(save.set);
-      if (a === 'low' && !playing) { await makeStage(save.set.low); applySkin(); showMap(); }
+      if (a === 'low' && !playing) { el.remove(); showMap(); }
     });
   el.addEventListener('input', e => { const k = e.target.dataset.v; if (k) { save.set[k] = +e.target.value; persist(); audio.configure(save.set); } });
 }
@@ -222,7 +228,7 @@ function showResult(r) {
       <div class="row"><button class="btn ghost" data-a="map">지도</button><button class="btn ghost" data-a="retry">다시</button>${next ? '<button class="btn" data-a="next">다음 밤</button>' : ''}</div>`
     : `<h2>창문이 모두 꺼졌어요</h2><p>등불을 키우거나 도구 방향을 바꿔 보세요</p><div class="row"><button class="btn ghost" data-a="map">지도</button><button class="btn" data-a="retry">다시</button></div>`;
   modal(html, a => {
-    const go = () => { if (a === 'retry') startNight(level.c, level.s, level.daily ? { daily: level } : {}); else if (a === 'next') { viewCh = next[0]; startNight(next[0], next[1]); } else { viewCh = level.c; showMap(); } };
+    const go = () => { if (a === 'retry') startNight(level.c, level.s, level.daily ? { daily: level } : {}); else if (a === 'next') { viewCh = next[0]; startNight(next[0], next[1]); } else { if (!level.daily) viewCh = level.c; showMap(); } };
     if (r.won && !save.asked && level.c === 0 && level.s >= 2) askNick(go); else go();   // right after the tutorial nights
   });
 }
@@ -251,8 +257,8 @@ const endHold = () => {
   hold = null;
 };
 frame.addEventListener('pointerup', endHold); frame.addEventListener('pointercancel', endHold);
-addEventListener('keydown', e => { if (e.key === ' ' && playing && sim) sim.flash(); if (e.key === 'Escape') showPause(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden && playing && !paused && !AUTO) showPause(); });
+addEventListener('keydown', e => { if (e.key === ' ' && playing && sim && !paused) sim.flash(); if (e.key === 'Escape') showPause(); });
+document.addEventListener('visibilitychange', () => { audio.background(document.hidden); if (document.hidden && playing && !paused && !AUTO) showPause(); });
 
 // ---------- loop ----------
 function advance(dt) { // one slice of game time
@@ -269,7 +275,7 @@ function tick(now) {
     // the hush before a flash: holding darkens the stage (to 50 % at most)
     const held = flashHold > 0 ? now - flashHold : hold && hold.aim && !hold.moved ? now - hold.t : 0;
     stage.setGather(sim.canFlash() ? clamp((held - 200) / 500) : 0);
-    if (endTimer > 0) { endTimer -= dt * speed; if (endTimer <= 0) { ended = true; endTimer = -1; finishNight(); } }
+    if (endTimer > 0) { endTimer -= dt * speed; if (endTimer <= 0) finishNight(); }
     updateHud(dt);
   }
   stage.frame(paused ? 0 : dt, playing ? sim : null);
@@ -285,7 +291,8 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
     reg.addEventListener('updatefound', () => { const w = reg.installing; w && w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) offer(w); }); });
     setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
   }).catch(() => {});
-  let reloaded = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+  const hadWorker = !!navigator.serviceWorker.controller; let reloaded = false;   // only an update reloads the page, never the first install
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadWorker && !reloaded) { reloaded = true; location.reload(); } });
 }
 
 // ---------- test hooks: scripted play-through without waiting on the display ----------
@@ -294,7 +301,7 @@ window.__ll = {
   start: (c, s, o) => startNight(c, s, o), map: () => showMap(), title: () => showTitle(),
   // run game time forward synchronously (draws a frame now and then so the renderer is exercised too)
   run(seconds, step = 1 / 30) { let n = 0; for (let t = 0; t < seconds && sim && !sim.done; t += step) { stage.st.freeze = 0; advance(step); if (++n % 20 === 0) stage.frame(step, sim); } stage.frame(step, sim); updateHud(0); return sim ? { phase: sim.phase, t: sim.t, windows: sim.windows, kills: sim.kills, enemies: sim.enemies.length } : null; },
-  playNight(c, s, o = {}) { startNight(c, s, { bot: true, ...o }); this.run(400); const r = finishNight(); return { name: level.name, ...r }; },
+  playNight(c, s, o = {}) { startNight(c, s, { bot: true, ...o }); this.run(400); silentEnd = !!o.quiet; const r = finishNight(); silentEnd = false; return { name: level.name, ...r }; },
   buyAll() { for (;;) { const u = UPGRADES.filter(x => (save.up[x.id] || 0) < x.cost.length && (x.ch == null || chapterOpen(x.ch))).sort((a, b) => a.cost[save.up[a.id] || 0] - b.cost[save.up[b.id] || 0])[0]; if (!u || u.cost[save.up[u.id] || 0] > save.sparkles) return save.up; save.sparkles -= u.cost[save.up[u.id] || 0]; save.up[u.id] = (save.up[u.id] || 0) + 1; } },
   lightAll(c) { for (const v of VILLAGE) if (!litOf(c).includes(v.id) && save.oil >= v.cost) { save.oil -= v.cost; save.lit[c] = [...litOf(c), v.id]; } return litOf(c); },
   festival(c) { viewCh = c; tab = 'town'; save.festival[c] = true; showMap(); stage.setTown(litOf(c), true); showFestival(); },

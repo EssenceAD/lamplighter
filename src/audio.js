@@ -49,6 +49,7 @@ export function unlock() {
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   apply(); nextBar = ctx.currentTime + 0.15; setInterval(schedule, 120);
 }
+export function background(hidden) { if (!ctx) return; if (hidden) ctx.suspend(); else ctx.resume(); }
 export function configure(s) { Object.assign(set, s); apply(); }
 export function setMood(m) { mood = m; }
 export const isMuted = () => MUTED;

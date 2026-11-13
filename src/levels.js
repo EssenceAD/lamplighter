@@ -101,10 +101,11 @@ export const ENEMY_TIPS = {
 };
 
 // the night of the day: same for everyone, seeded by the date
-export function dailyLevel(dateStr, slotsAll) {
+export function dailyLevel(dateStr, slotsFor) {
   let h = 0; for (const ch of dateStr) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const r = rng(h);
-  const L = makeLevel(2 + Math.floor(r() * 3), 5 + Math.floor(r() * 9), slotsAll);
+  const c = 2 + Math.floor(r() * 3), slotsAll = slotsFor(c);
+  const L = makeLevel(c, 5 + Math.floor(r() * 9), slotsAll);
   L.daily = dateStr; L.name = '오늘의 밤'; L.tierName = '도전'; L.tools = TOOL_ORDER.slice(); L.slots = slotsAll.slice(); L.hint = ['lens', 'glass', 'mirror', 'jar', 'prism', 'mirror'];
   L.boss = null; L.guide = null; L.intro = '오늘의 밤'; L.tip = '모두 같은 밤을 지켜요. 점수는 순위에 올라가요.'; L.id = -1;
   return L;
