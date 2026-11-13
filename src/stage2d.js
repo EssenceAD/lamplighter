@@ -103,7 +103,7 @@ export async function createStage2D(frame, SHAPES, opt = {}) {
         else { gh.t += dt; const k = Math.sin(clamp(gh.t / 0.1) * Math.PI / 2); sx = 1 + 0.42 * k; sy = 1 - 0.46 * k; if (gh.t >= 0.2) rim = '255,255,255'; }
         sil(look, x, z, h * 1.06, `rgba(${rim},.95)`, sx, sy, lift); const o = sil(look, x, z, h, 'rgb(13,12,24)', sx, sy, lift + 0.02);
         for (const [fx, fy] of EYES[look]) { const ex = o.a.x + (fx - 0.5) * o.S.w * o.k * sx, ey = o.a.y - (1 - fy) * o.S.h * o.k * sy, er = Math.max(1.5, o.S.h * o.k * 0.075); g.fillStyle = '#ffab2b'; g.beginPath(); g.arc(ex, ey, er, 0, 6.283); g.fill(); g.fillStyle = '#0d0c14'; g.beginPath(); g.arc(ex, ey + er * 0.12, er * 0.42, 0, 6.283); g.fill(); }
-        if (e && (e.max > 40 || e.type === 'boss' || e.type === 'fat')) { const w = Math.min(60, o.S.w * o.k * 0.8), y = o.a.y - o.S.h * o.k - 9; g.fillStyle = '#0b0a14'; g.fillRect(o.a.x - w / 2 - 1, y - 1, w + 2, 6); g.fillStyle = '#ffb340'; g.fillRect(o.a.x - w / 2, y, w * clamp(e.hp / e.max), 4); }
+        if (e && (e.type === 'boss' || e.type === 'fat')) { const w = Math.min(60, o.S.w * o.k * 0.8), y = o.a.y - o.S.h * o.k - 9; g.fillStyle = '#0b0a14'; g.fillRect(o.a.x - w / 2 - 1, y - 1, w + 2, 6); g.fillStyle = '#ffb340'; g.fillRect(o.a.x - w / 2, y, w * clamp(e.hp / e.max), 4); }
         if (gh && gh.t >= 0.28) { const c = proj(x, h * 0.5, z); pops.push({ x: c.x, y: c.y, t: 0, r: c.s * h * 0.85 }); burst(c.x, c.y, 9, CH); gh.done = true; } }
     }
     ghosts = ghosts.filter(x => !x.done);

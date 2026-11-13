@@ -6,7 +6,7 @@ import { load, store, totalStars, stats } from './save.js';
 import * as audio from './audio.js';
 import * as net from './net.js';
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.0.1';
 const Q = new URLSearchParams(location.search);
 const DEBUG = Q.has('debug'), AUTO = Q.has('auto');
 const SAVE_KEY = AUTO ? 'lamplighter.auto' : undefined;          // the automated play-through never touches a real save

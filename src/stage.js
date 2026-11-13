@@ -499,7 +499,7 @@ export async function createStage(frame, SHAPES, opt = {}) {
         m.g.position.set(e.x, hop * 0.1 * Math.min(1.5, m.H), e.z + 0.02); m.body.scale.set(sx * (e.hx < -0.4 && LOOK[m.look].eyes.length === 1 ? -1 : 1), sy, 1);
         m.body.rotation.z = e.stun > 0 ? Math.sin(clock * 40) * 0.05 : Math.sin(ph) * 0.06 + (e.blown > 0 ? 0.5 : 0);
         m.rim.color.copy(e.blocked > 0 ? WHITE : m.rimBase); if (e.lit > 0 && e.blocked <= 0) m.rim.color.lerp(WHITE, 0.45);
-        const bar = e.max > 40 || e.type === 'boss' || e.type === 'fat'; m.bar.visible = bar;
+        const bar = e.type === 'boss' || e.type === 'fat';   // only the big ones carry a health bar m.bar.visible = bar;
         if (bar) { const k = clamp(e.hp / e.max), w = Math.min(2.2, m.H * 0.7); m.bar.quaternion.copy(camera.quaternion); m.bar.scale.set(w, 1, 1); m.bf.scale.x = Math.max(0.001, k * 0.98); m.bf.position.x = -(1 - k) * 0.49; }
       }
     }

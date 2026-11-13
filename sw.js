@@ -1,6 +1,6 @@
 // 등불지기 — service worker: offline play and the "new version" strip.
 // Bump VERSION on every release; the page shows the strip when a new worker is waiting.
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const CACHE = 'lamplighter-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './src/main.js', './src/sim.js', './src/levels.js', './src/tuning.js', './src/world.js', './src/save.js', './src/audio.js', './src/net.js',
   './src/stage.js', './src/stage2d.js', './src/looks.js', './assets/shapes.json', './assets/icon-192.png', './assets/icon-512.png',
