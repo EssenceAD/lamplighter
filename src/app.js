@@ -5,7 +5,7 @@ import { createHarbour } from './harbour.js';
 import * as audio from './audio.js';
 import * as net from './net.js';
 
-export const VERSION = '3.0.0';
+export const VERSION = '3.0.1';
 const Q = new URLSearchParams(location.search), DEBUG = Q.has('debug'), AUTO = Q.has('auto');
 const $ = (s, el = document) => el.querySelector(s), ui = $('#ui'), frame = $('#frame');
 const h = html => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -51,7 +51,7 @@ const stage = await createHarbour(frame, SHAPES);
 $('#load').remove();
 
 // ---------- state ----------
-let game = null, bot = null, playing = false, paused = false, speed = 1, menuSlot = -1, pending = '', aiming = '', rallySlot = -1, tipT = 0, endT = -1, submitted = false, hudKey = '';
+let game = null, bot = null, playing = false, paused = false, speed = 1, menuSlot = -1, pending = '', aiming = '', rallySlot = -1, heroSelT = 0, tipT = 0, endT = -1, submitted = false, hudKey = '';
 const TIPS = { 1: '빛나는 자리를 눌러 탑을 세워요.', 2: '땅을 누르면 등대지기가 그리로 가요.', 3: '방패게는 화살이 잘 안 들어요. 렌즈탑으로 비춰요.', 4: '갈매기 그림자는 궁수탑만 맞혀요.',
   5: '문어는 쓰러지면 셋으로 갈라져요.', 6: '거북은 단단해요. 길을 막고 렌즈로 비춰요.', 15: '큰 고래 그림자가 와요.' };
 
@@ -122,7 +122,7 @@ function showHud() {
   onTap(el, (d, t) => { if (!game) return;
     if (d.a === 'note') { save.set.music = !save.set.music; persist(); audio.configure(save.set); } else if (d.a === 'pause') showPause();
     else if (d.a === 'call') game.callWave(); else if (d.a === 'spd') { speed = speed === 1 ? 2 : 1; $('.paper', t).innerHTML = ic(speed === 2 ? 'fast' : 'slow'); $('.paper', t).classList.toggle('on', speed === 2); }
-    else if (d.a === 'hero') { if (!game.heroSkill()) showTip(game.hero.dead ? '등대지기가 곧 돌아와요.' : '등불 휘두르기는 아직 준비 중이에요.', 3); }
+    else if (d.a === 'hero') { heroSelT = 3; if (!game.heroSkill()) showTip(game.hero.dead ? '등대지기가 곧 돌아와요.' : '등불 휘두르기는 아직 준비 중이에요.', 3); }
     else if (d.a === 'flash' || d.a === 'rein') aim(aiming === d.a ? '' : d.a);
     else if (d.m) menuAct(d.m, d.x); });
   ui.append(el);
@@ -184,6 +184,7 @@ function updateHud(dt) {
   const veil = (id, k) => { const b = $(id); if (b) { $('.veil2', b).style.height = (clamp(k) * 100).toFixed(0) + '%'; b.classList.toggle('ready', k <= 0); } };
   veil('#sk-flash', game.cd.flash / (SKILLS.flash.cd * game.m.skill)); veil('#sk-rein', game.cd.rein / (SKILLS.rein.cd * game.m.skill)); veil('#sk-hero', game.hero.dead ? 1 : game.cd.hero / SKILLS.hero.cd);
   const hb = $('#sk-hero'); hb.classList.toggle('down', game.hero.dead); hb.style.setProperty('--hp', clamp(game.hero.hp / game.hero.max).toFixed(2));
+  if (heroSelT > 0) heroSelT -= dt; stage.heroSel(heroSelT > 0 || game.hero.walking); $('#sk-hero').classList.toggle('on', heroSelT > 0);
   $('[data-a=note]', hud).style.opacity = save.set.music ? 1 : 0.5;
   if (tipT > 0) { tipT -= dt; const tip = $('#tip'); if (tipT <= 0) tip.classList.add('hide'); else tip.style.opacity = Math.min(1, tipT); }
   if (DEBUG) { const i = stage.info(); $('#dbg').textContent = `적 ${game.enemies.length} · ${Math.round(i.fps)}fps · 해상도 ${i.pixelRatio.toFixed(2)} · 호출 ${i.calls}`; }
@@ -197,8 +198,9 @@ frame.addEventListener('pointerdown', e => {
   if (rallySlot >= 0) { if (p) game.setRally(rallySlot, p.x, p.z); rallySlot = -1; stage.range(null); hideTip(); return; }
   const slot = stage.slotAt(e.clientX, e.clientY, game);
   if (menuSlot >= 0) { const was = menuSlot; closeMenu(); if (slot < 0 || slot === was) return; }
+  if (stage.heroAt(e.clientX, e.clientY, game)) { heroSelT = 5; audio.sfx('tap'); showTip('등대지기가 갈 곳을 눌러요.', 4); return; }   // picking the keeper: an amber ring under his feet
   if (slot >= 0) { openMenu(slot); audio.sfx('tap'); return; }
-  if (p && game.moveHero(p.x, p.z)) stage.onEvent({ type: 'go', x: game.hero.home.x, z: game.hero.home.z }, game);
+  if (p && game.moveHero(p.x, p.z) && (heroSelT = 1.5)) stage.onEvent({ type: 'go', x: game.hero.home.x, z: game.hero.home.z }, game);
 });
 addEventListener('keydown', e => { if (e.key === 'Escape') showPause(); });
 document.addEventListener('visibilitychange', () => { audio.background(document.hidden); if (document.hidden && playing && !paused && !AUTO) showPause(); });
