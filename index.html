@@ -88,7 +88,20 @@
   .tog { width: 52px; height: 30px; border-radius: 20px; background: #b9a888; position: relative; flex: none; } .tog::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff8e8; transition: .15s; } .tog.on { background: #e08a1c; } .tog.on::after { left: 25px; }
   #update { position: absolute; left: 0; right: 0; top: 0; background: var(--amber); color: #2a1606; text-align: center; padding: 9px 10px; font-weight: 700; font-size: 14px; z-index: 9; }
   #load { position: absolute; inset: 0; display: grid; place-items: center; color: #8f8a7a; letter-spacing: .14em; font-size: 13px; }
-  #dbg { position: absolute; left: 6px; bottom: 2px; font-size: 10px; color: rgba(255, 255, 255, .5); pointer-events: none; }
+  .stat { background: rgba(11, 12, 28, .78); padding: 7px 11px; border-radius: 99px; font-weight: 700; font-size: 14px; box-shadow: inset 0 0 0 1px rgba(241, 227, 200, .22); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .stat i { width: 10px; height: 13px; border-radius: 2px; background: var(--amber); display: inline-block; } .stat i.s { width: 11px; height: 11px; border-radius: 2px; transform: rotate(45deg); background: #bfe0ff; }
+  .row3 { display: flex; gap: 8px; } .row3 .btn { padding: 11px 13px; font-size: 14px; } #title .row3 .btn { width: auto; } .best { color: var(--dim); }
+  #call { padding: 11px 14px; font-size: 14px; min-height: 46px; } #spd.on { background: var(--paper); color: var(--ink); font-weight: 800; } #spd { font-size: 15px; font-weight: 700; }
+  #menu { position: absolute; inset: 0; pointer-events: none; }
+  .mi { position: absolute; width: 62px; height: 62px; margin: -31px 0 0 -31px; border-radius: 50%; background: var(--paper); color: var(--ink); box-shadow: 0 3px 0 #9c8a66, 0 6px 14px rgba(0, 0, 0, .5); pointer-events: auto; display: grid; place-items: center; animation: popin .16s ease-out both; }
+  .mi svg { width: 26px; height: 30px; fill: var(--ink); margin-top: -8px; } .mi b { font-size: 22px; margin-top: -8px; } .mi small { position: absolute; bottom: 5px; left: 0; right: 0; text-align: center; font-size: 11px; font-weight: 800; color: #8a4a10; }
+  .mi i { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 3px; font-style: normal; font-size: 10px; color: var(--paper); white-space: nowrap; text-shadow: 0 1px 4px #000; font-weight: 600; }
+  .mi.poor { background: #8f8672; } .mi.poor small { color: #5a2a10; }
+  .mt { position: absolute; transform: translateX(-50%); background: rgba(11, 12, 28, .86); padding: 5px 11px; border-radius: 99px; font-size: 12px; white-space: nowrap; }
+  @keyframes popin { from { transform: scale(.4); opacity: 0; } }
+  .cards { display: grid; gap: 9px; margin-top: 10px; } .pick { background: #fff8e8; border-radius: 13px 11px 14px 10px; padding: 12px 12px; text-align: left; box-shadow: 0 3px 0 #9c8a66, inset 0 0 0 1.5px #c9b68f; display: block; width: 100%; }
+  .pick b { display: block; font-size: 16px; color: #2a1606; } .pick span { font-size: 13px; color: #5a4a35; } .pick:active { transform: translateY(2px); box-shadow: 0 1px 0 #9c8a66, inset 0 0 0 1.5px #c9b68f; }
+  #dbg { position: absolute; left: 6px; top: 62px; font-size: 11px; color: rgba(255, 255, 255, .5); pointer-events: none; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -99,6 +112,6 @@
 </head>
 <body>
 <div id="stage"><div id="frame"><div id="load">등불을 켜는 중…</div><div id="ui"></div></div></div>
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="./src/app.js"></script>
 </body>
 </html>

@@ -62,7 +62,7 @@ function tone(t, f0, f1, dur, vol, type = 'sine') {
   const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + dur + 0.05);
 }
-let lastPop = 0;
+let lastPop = 0, lastZap = 0;
 export function sfx(name) {
   if (!ctx || !set.sfx) return; const t = ctx.currentTime;
   if (name === 'pop') { if (t - lastPop < 0.05) return; lastPop = t; tone(t, 320, 880, 0.09, 0.22); noise(t, 0.12, 3200, 1.2, 0.1); noise(t + 0.03, 0.16, 5200, 2, 0.05); } // pop + paper
@@ -73,6 +73,8 @@ export function sfx(name) {
   else if (name === 'win') [587, 740, 880, 1175].forEach((f, i) => tone(t + i * 0.13, f, f, 0.5, 0.11, 'triangle'));
   else if (name === 'lose') [392, 330, 262].forEach((f, i) => tone(t + i * 0.2, f, f * 0.97, 0.6, 0.1, 'triangle'));
   else if (name === 'tap') tone(t, 660, 520, 0.05, 0.07, 'triangle');
+  else if (name === 'bell') { tone(t, 523, 520, 1.1, 0.12); tone(t, 1046, 1040, 0.7, 0.05); tone(t, 1570, 1560, 0.4, 0.03); }
+  else if (name === 'zap') { if (t - lastZap < 0.08) return; lastZap = t; noise(t, 0.07, 6500, 3, 0.07); tone(t, 1800, 500, 0.06, 0.05, 'square'); }
 }
 export function onEvent(e) {
   if (e.type === 'kill') { sfx('pop'); if (e.sparkle) sfx('sparkle'); }

@@ -23,6 +23,9 @@ const MAP = {
   moon: ['scenery_1', 20], cloud_a: ['scenery_0', 20], cloud_b: ['scenery_3', 20],
   ridge: ['scenery_4', 20], hill_pines: ['scenery_5', 8], hill_grass: ['scenery_6', 8],
   hill_far: ['scenery_8', 20], hill_low: ['scenery_9', 20],
+  e_fry: ['sea_2', 40], e_fish: ['sea_0', 30], e_crab: ['sea_1', 30], e_octo: ['sea_3', 30], e_turtle: ['sea_4', 30], e_boss: ['sea_5', 40],
+  cliff_a: ['cliff_a', 30], cliff_b: ['cliff_b', 30], boat: ['boat', 20], pier: ['pier', 20], t_bell: ['t_bell', 30], t_beacon: ['t_beacon', 20], barrels: ['barrels', 20], rock: ['rock', 30],
+  wave_a: ['scenery_6', 8], wave_b: ['scenery_8', 20], wave_c: ['scenery_9', 20],
   path: ['path_0', 40],
 };
 
