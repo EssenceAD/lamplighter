@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>등불지기 — 룩뎁</title>
+<meta name="theme-color" content="#05060f">
+<style>
+  html, body { margin: 0; height: 100%; background: #05060f; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  #frame { position: relative; }
+  canvas { display: block; }
+  #cap {
+    position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom));
+    text-align: center; font: 500 12px/1.4 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    letter-spacing: .04em; color: rgba(255, 236, 205, .62); text-shadow: 0 1px 6px rgba(0, 0, 0, .7);
+    pointer-events: none; transition: opacity .5s;
+  }
+  #load { position: absolute; inset: 0; display: grid; place-items: center; color: #8f8a7a;
+    font: 13px system-ui, sans-serif; letter-spacing: .1em; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage"><div id="frame"><div id="load">…</div><div id="cap"></div></div></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

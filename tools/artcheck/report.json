@@ -1,0 +1,36 @@
+{
+ "pass": true,
+ "rows": [
+  {
+   "measure": "spread",
+   "lookdev": 0.7456,
+   "game": 0.759,
+   "ratio": 1.02
+  },
+  {
+   "measure": "grain",
+   "lookdev": 0.1392,
+   "game": 0.18,
+   "ratio": 1.29
+  },
+  {
+   "measure": "shadow",
+   "lookdev": 0.2341,
+   "game": 0.3434,
+   "ratio": 1.47
+  }
+ ],
+ "lookdev": {
+  "spread": 0.7456,
+  "grain": 0.1392,
+  "shadow": 0.2341,
+  "mean": 0.1995
+ },
+ "game": {
+  "spread": 0.759,
+  "grain": 0.18,
+  "shadow": 0.3434,
+  "mean": 0.1928
+ },
+ "when": "2026-11-13T17:55:02.093Z"
+}

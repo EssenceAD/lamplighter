@@ -24,7 +24,7 @@ const MAP = {
   ridge: ['scenery_4', 20], hill_pines: ['scenery_5', 8], hill_grass: ['scenery_6', 8],
   hill_far: ['scenery_8', 20], hill_low: ['scenery_9', 20],
   e_fry: ['sea_2', 40], e_fish: ['sea_0', 30], e_crab: ['sea_1', 30], e_octo: ['sea_3', 30], e_turtle: ['sea_4', 30], e_boss: ['sea_5', 40],
-  cliff_a: ['cliff_a', 30], gull: ['gull', 60], guard: ['guard', 60], watch: ['watch', 40], hut: ['hut', 40], crag_a: ['crag_a', 400], crag_b: ['crag_b', 400], cliff_b: ['cliff_b', 30], boat: ['boat', 20], pier: ['pier', 20], t_bell: ['t_bell', 30], t_beacon: ['t_beacon', 20], barrels: ['barrels', 20], rock: ['rock', 30],
+  cliff_a: ['cliff_a', 30], keeper: ['keeper', 60], tw_archer: ['tw_archer', 40], tw_lens: ['tw_lens', 40], tw_beacon: ['tw_beacon', 40], lamp_post: ['lamp_post', 40], gull: ['gull', 60], guard: ['guard', 60], watch: ['watch', 40], hut: ['hut', 40], crag_a: ['crag_a', 400], crag_b: ['crag_b', 400], cliff_b: ['cliff_b', 30], boat: ['boat', 20], pier: ['pier', 20], t_bell: ['t_bell', 30], t_beacon: ['t_beacon', 20], barrels: ['barrels', 20], rock: ['rock', 30],
   wave_a: ['wave_1', 60], wave_b: ['wave_2', 60], wave_c: ['wave_3', 60],
   path: ['path_0', 40],
 };

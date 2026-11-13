@@ -14,6 +14,11 @@ const SHEETS = {
   '../ref/guard.png': { guard: [160, 220, 1345, 1895] },
   '../ref/watch.png': { watch: [146, 300, 850, 1905] },
   '../ref/hut.png': { hut: [146, 146, 1775, 1905] },
+  '../ref/keeper.png': { keeper: [143, 385, 1068, 1705] },
+  '../ref/tw_archer.png': { tw_archer: [205, 78, 1292, 1868] },
+  '../ref/tw_lens.png': { tw_lens: [425, 78, 1540, 1970] },
+  '../ref/tw_beacon.png': { tw_beacon: [425, 118, 1376, 1848] },
+  '../ref/lamp_post.png': { lamp_post: [200, 112, 1265, 1950] },
 };
 (async () => {
   for (const [file, rects] of Object.entries(SHEETS)) {

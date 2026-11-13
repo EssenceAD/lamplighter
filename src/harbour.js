@@ -9,8 +9,9 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { clamp, rng, LANES, SLOTS, TOWER, TOWERS, TOWER_ORDER } from './game.js';
-const WAVE_V = 8;
+import { clamp, rng, LANES, SLOTS, TOWER, TOWERS, TOWER_ORDER, towerStat } from './game.js';
+const WAVE_V = 8, MOON = 1.7;
+const POST_LAMP = [0.77, 0.33], TOOL_LAMP = { archer: [0.93, 0.3], barracks: [0.49, 0.47], lens: [0.5, 0.576], beacon: [0.48, 0.26] };   // where the lamp sits on each outline (fractions of its box)
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
@@ -20,10 +21,10 @@ const LOOK = {
   fry: ['e_fry', 0.88, [[0.36, 0.3], [0.66, 0.3]], 0.095], fish: ['e_fish', 0.9, [[0.74, 0.5]], 0.11], crab: ['e_crab', 0.83, [[0.42, 0.42], [0.6, 0.42]], 0.08],
   octo: ['e_octo', 0.92, [[0.4, 0.3], [0.62, 0.3]], 0.08], baby: ['e_octo', 0.55, [[0.4, 0.3], [0.62, 0.3]], 0.095], gull: ['gull', 1.05, [[0.665, 0.585]], 0.05],
   turtle: ['e_turtle', 0.84, [[0.86, 0.3]], 0.075], boss: ['e_boss', 2.7, [[0.2, 0.36], [0.42, 0.36]], 0.035],
-  soldier: ['guard', 0.8, [[0.845, 0.33]], 0.085, 'ally'], villager: ['v_woman', 0.78, [], 0, 'ally'], hero: ['v_old', 1.4, [], 0, 'ally'],
+  soldier: ['guard', 0.8, [[0.845, 0.33]], 0.085, 'ally'], villager: ['v_woman', 0.78, [], 0, 'ally'], hero: ['keeper', 1.4, [[0.9, 0.3]], 0.085, 'ally'],
 };
 const CAP = { fry: 70, fish: 70, crab: 40, octo: 30, baby: 70, gull: 16, turtle: 20, boss: 2, soldier: 40, villager: 14, hero: 2 };
-const TOOL_SHAPE = { archer: ['watch', 1.5], barracks: ['hut', 1.05], lens: ['t_lens', 1.2], beacon: ['t_beacon', 1.3] };
+const TOOL_SHAPE = { archer: ['tw_archer', 1.5], barracks: ['hut', 1.15], lens: ['tw_lens', 1.45], beacon: ['tw_beacon', 1.4] };
 
 export async function createHarbour(frame, SHAPES) {
   const SPOT_FLOOR = { value: 0.05 }, GRAIN = { value: 5.0 };
@@ -34,8 +35,8 @@ export async function createHarbour(frame, SHAPES) {
   frame.prepend(renderer.domElement);
   try {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x05060f);
-  const camera = new THREE.PerspectiveCamera(40, 9 / 16, 0.5, 80); const PITCH = 1.152, DIST = 21, SEA_Z = 4.25, SEA_AT = 0.865;   // the shore line sits at 86.5% of the screen height on every aspect ratio
-  const LEAN = -0.58, CL = Math.cos(LEAN), SL = -Math.sin(LEAN);   // every standing sheet leans back a little, like a pop-up book, so it still reads from this higher view
+  const camera = new THREE.PerspectiveCamera(40, 9 / 16, 0.5, 80); const PITCH = 0.873, DIST = 19.6, SEA_Z = 4.25, SEA_AT = 0.865;   // the shore line sits at 86.5% of the screen height on every aspect ratio
+  const LEAN = -0.2, CL = Math.cos(LEAN), SL = -Math.sin(LEAN);   // every standing sheet leans back a little, like a pop-up book, so it still reads from this higher view
   const TL = new THREE.TextureLoader();
   const tex = (url, srgb = true, repeat = 1) => new Promise((res, rej) => TL.load(url, t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; res(t); }, undefined, rej));
   const [paperW, paperWN, paperCreaseN, pCircle, pSpark, pFlare, pLight, pStar] = await Promise.all([
@@ -44,17 +45,27 @@ export async function createHarbour(frame, SHAPES) {
 
   // ---------- paper ----------
   const svgLoader = new SVGLoader(), dawnMats = [];
+  const POOLS = { value: Array.from({ length: 32 }, () => new THREE.Vector4()) }, POOL_N = { value: 0 }, POOL_K = { value: 1 };
+  const grainy = m => { m.onBeforeCompile = sh => { sh.uniforms.uGrain = GRAIN; sh.fragmentShader = 'uniform float uGrain;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= clamp( 1.0 + ( texture2D( map, vMapUv ).g - texture2D( map, vMapUv, 5.0 ).g ) * uGrain, 0.5, 1.6 );'); }; return m; };   // paper grain for unlit pieces too
   const dawnTint = (m, night, dawn) => { m.userData.night = new THREE.Color(night); m.userData.dawn = new THREE.Color(dawn ?? night); dawnMats.push(m); return m; };
   function paperMat(night, dawn) {
     const m = new THREE.MeshLambertMaterial({ color: night, map: paperW, normalMap: paperWN, normalScale: new THREE.Vector2(1, 1), side: THREE.DoubleSide, shadowSide: THREE.DoubleSide });
-    m.onBeforeCompile = sh => { sh.uniforms.uSpotFloor = SPOT_FLOOR; sh.uniforms.uGrain = GRAIN;
-      sh.fragmentShader = 'uniform float uGrain;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= clamp( 1.0 + ( texture2D( map, vMapUv ).g - texture2D( map, vMapUv, 5.0 ).g ) * uGrain, 0.45, 1.7 );'); };
+    m.onBeforeCompile = sh => { sh.uniforms.uSpotFloor = SPOT_FLOOR; sh.uniforms.uGrain = GRAIN; sh.uniforms.uPools = POOLS; sh.uniforms.uPoolN = POOL_N; sh.uniforms.uPoolK = POOL_K;
+      sh.vertexShader = 'varying vec3 vPoolW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vPoolW = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;');
+      const out = 'vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;'; if (!sh.fragmentShader.includes(out)) console.warn('light pools: shader chunk changed');
+      sh.fragmentShader = 'uniform float uGrain; uniform vec4 uPools[32]; uniform int uPoolN; uniform float uPoolK; varying vec3 vPoolW;\n' + sh.fragmentShader
+        .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= clamp( 1.0 + ( texture2D( map, vMapUv ).g - texture2D( map, vMapUv, 5.0 ).g ) * uGrain, 0.45, 1.7 );')
+        .replace(out, `vec3 pool = vec3( 0.0 ); for ( int i = 0; i < 32; i ++ ) { if ( i >= uPoolN ) break; vec4 p = uPools[ i ]; float d = distance( vPoolW.xz, p.xy ), r = abs( p.z );
+          float k = p.z > 0.0 ? pow( 1.0 - smoothstep( 0.0, r, d ), 1.7 ) : ( 1.0 - smoothstep( r * 0.86, r, d ) ) * 0.3 + pow( 1.0 - smoothstep( 0.0, r * 0.4, d ), 2.0 ) * 0.9;
+          pool += vec3( 1.0, 0.55, 0.19 ) * ( k * p.w ); }
+        pool *= uPoolK * ( 1.0 - smoothstep( 1.0, 3.2, vPoolW.y ) );
+        vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance + diffuseColor.rgb * pool;`); };
     return dawnTint(m, night, dawn);
   }
-  const CORE = paperMat(0x8f95b8, 0xe9cdb6), geoCache = new Map();
+  const CORE = grainy(dawnTint(new THREE.MeshBasicMaterial({ color: 0xffffff, map: paperW, side: THREE.DoubleSide }), new THREE.Color(0.24, 0.33, 0.60), new THREE.Color(0.95, 0.82, 0.70))), geoCache = new Map();
   function outline(name, o) { // potrace outline -> resampled, jittered paper shapes + a fringe layer
     const key = name + JSON.stringify([o.height, o.squash, o.step, o.rough, o.fr0, o.fr1, o.solid]); if (geoCache.has(key)) return geoCache.get(key);
-    const S = SHAPES[name], k = o.height / S.h, sy = o.squash ?? 1, step = o.step ?? 5, rough = o.rough ?? 0.9, fr0 = o.fr0 ?? 0.8, fr1 = o.fr1 ?? 2.2, rnd = rng(name.length * 977 + S.w);
+    const S = SHAPES[name], k = o.height / S.h, sy = o.squash ?? 1, step = o.step ?? 5, rough = o.rough ?? 0.9, fr0 = o.fr0 ?? 0.01 / k, fr1 = o.fr1 ?? 0.014 / k, rnd = rng(name.length * 977 + S.w);
     const shapes = svgLoader.parse(`<svg xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="${S.d}"/></svg>`).paths.flatMap(p => SVGLoader.createShapes(p));
     const W = (x, y) => new THREE.Vector2((x - S.w / 2) * k, (S.h - y) * k * sy), main = [], fringe = [], holes = [];
     const contour = (pts, isHole) => {
@@ -82,7 +93,9 @@ export async function createHarbour(frame, SHAPES) {
   const M = { house: paperMat(0x2b2f55, 0x3a2f4a), house2: paperMat(0x33294f, 0x44304a), tower: paperMat(0x2a2440, 0x3b2a44), tree: paperMat(0x1c2c44, 0x2e3350), prop: paperMat(0x24284a, 0x3a3048),
     cliff: paperMat(0x2c3663, 0x5a4660), cliff2: paperMat(0x3a4678, 0x6e556c), far0: paperMat(0x232b58, 0x5f4a70), far1: paperMat(0x2c376c, 0x8a6585), far2: paperMat(0x36447f, 0xb07f8e),
     sea: [paperMat(0x5a90d0, 0xe2b0a6), paperMat(0x4b80c2, 0xd4a2a0), paperMat(0x3d70b2, 0xc4949a), paperMat(0x3161a0, 0xb08694), paperMat(0x27528e, 0x9a788e), paperMat(0x1f447c, 0x846a88)], seaFloor: paperMat(0x1f447c, 0x846a88),
-    cloud: paperMat(0x26326e, 0x8a6480), ground: paperMat(0x3c4879, 0x9a7f95), path: paperMat(0xd2c8da, 0xf3d6b4), slot: paperMat(0x6f759c, 0xcbb0a4) };
+    cloud: paperMat(0x26326e, 0x8a6480), ground: paperMat(0x3a3f62, 0x8a7088), land: [paperMat(0x545878, 0x9a7f95), paperMat(0x62627f, 0xa98a98), paperMat(0x6c6880, 0xb5958f), paperMat(0x4a5c72, 0x8f8a92)], fibre: paperMat(0xa6a8c0, 0xe9d6c2),
+    path: paperMat(0xefe4c8, 0xf6e2be), towerP: [paperMat(0x7c6a92, 0x9a7272), paperMat(0x6e7396, 0x8e7a80), paperMat(0x7a7896, 0x988088), paperMat(0x86697c, 0xa07068)], post: paperMat(0x4a4672, 0x6a5068), slot: paperMat(0x6f759c, 0xcbb0a4) };
+  for (const m of [...M.land, M.path]) { m.normalMap = paperCreaseN; m.normalScale.set(1.1, 1.1); }
   M.ground.normalMap = paperCreaseN; M.ground.normalScale.set(1.3, 1.3);
 
   // ---------- scenery ----------
@@ -90,13 +103,26 @@ export async function createHarbour(frame, SHAPES) {
   const stand = (g, x, z, o = {}) => { g.position.set(x, o.y ?? 0, z); scene.add(g); flats.push({ g, amp: o.amp ?? 1, seed: flats.length * 1.7, x, z }); return g; };
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), M.ground); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
   { const uv = ground.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 60, uv.getY(i) * 60); }
-  // the three ways up from the beach: paper ribbons with ragged edges
-  { const r = rng(5), pos = [], uv = [];
-    for (const L of LANES) { const P = L.pts; for (let i = 0; i < P.length - 1; i++) { const a = P[i], b = P[i + 1], d = Math.hypot(b.x - a.x, b.z - a.z) || 1, nx = -(b.z - a.z) / d, nz = (b.x - a.x) / d, w0 = 0.42 + (i ? L._w : 0.03), w1 = 0.42 + (L._w = (r() - 0.5) * 0.09);
-      const q = [[a.x + nx * w0, a.z + nz * w0], [a.x - nx * w0, a.z - nz * w0], [b.x + nx * w1, b.z + nz * w1], [b.x - nx * w1, b.z - nz * w1]];
-      for (const k of [0, 2, 1, 1, 2, 3]) { pos.push(q[k][0], 0.014 + LANES.indexOf(L) * 0.002, q[k][1]); uv.push(q[k][0], q[k][1]); } } }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, M.path); m.receiveShadow = true; scene.add(m); }
+  // the land is a few sheets of paper laid over each other: each has a torn edge, a pale line of fibre along it and a shadow on the sheet below
+  const shadeMat = new THREE.MeshBasicMaterial({ color: 0x04050d, transparent: true, opacity: 0.42, depthWrite: false });
+  const flatMesh = (shape, y, mat, order) => { const g = new THREE.ShapeGeometry(shape, 1); g.rotateX(-Math.PI / 2); const m = new THREE.Mesh(g, mat); m.position.y = y; m.receiveShadow = mat !== shadeMat; m.renderOrder = order; scene.add(m); return m; };
+  const tornSheet = (pts, y, mat, seed) => { const r = rng(seed), edge = grow => { const o = [];
+      for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length], d = Math.hypot(b[0] - a[0], b[1] - a[1]), k = Math.max(2, Math.round(d / 0.17)), nx = (b[1] - a[1]) / d, nz = -(b[0] - a[0]) / d;
+        for (let j = 0; j < k; j++) { const t = j / k, w = Math.sin((i * 7 + t * d) * 1.9 + seed) * 0.09 + J[o.length % J.length] + grow; o.push(new THREE.Vector2(a[0] + (b[0] - a[0]) * t + nx * w, -(a[1] + (b[1] - a[1]) * t + nz * w))); } } return new THREE.Shape(o); },
+      J = Array.from({ length: 997 }, () => (r() - 0.5) * 0.11 + (r() < 0.07 ? -0.1 * r() : 0));
+    const sh = flatMesh(edge(0.05), y - 0.006, shadeMat, 1); sh.position.x = 0.07; sh.position.z = 0.09; flatMesh(edge(0.045), y - 0.003, M.fibre, 1); flatMesh(edge(0), y, mat, 1); };
+  tornSheet([[-5.2, -4.95], [-2.2, -5.1], [0.6, -4.9], [5.2, -5.05], [5.3, -1], [5.2, 4.15], [1.5, 4.3], [-1.5, 4.1], [-5.2, 4.25], [-5.3, -0.5]], 0.008, M.land[0], 3);
+  tornSheet([[-5.4, -7.2], [5.4, -7.2], [5.4, -4.6], [2.6, -4.3], [0.4, -4.75], [-2.4, -4.35], [-5.4, -4.7]], 0.018, M.land[1], 8);
+  tornSheet([[-5.4, 3.5], [-2.6, 3.8], [-0.2, 3.45], [2.2, 3.75], [5.4, 3.5], [5.4, 4.8], [-5.4, 4.8]], 0.018, M.land[2], 13);
+  tornSheet([[-3.3, -1.3], [-1.2, -0.95], [-0.1, -1.05], [0.75, -0.2], [0.6, 0.75], [-0.9, 0.95], [-2.6, 0.9], [-3.6, 0.1]], 0.026, M.land[3], 21);
+  tornSheet([[1.9, 1.2], [3.9, 1.0], [4.4, 2.6], [3.2, 3.3], [1.6, 2.9]], 0.026, M.land[3], 34);
+  // the road: a cream strip of paper with torn edges, lying on the land (one flat tone, no gradient)
+  const strip = (L, hw, y, mat, grow, dx, dz, order) => { const P = L.pts, pos = [], uv = [], e = [];
+    for (let i = 0; i < P.length; i++) { const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)], d = Math.hypot(b.x - a.x, b.z - a.z) || 1, nx = -(b.z - a.z) / d, nz = (b.x - a.x) / d, key = Math.round(P[i].x * 31 + P[i].z * 57), q = rng(key * 13 + 7);
+      const wl = hw + grow + (q() - 0.5) * 0.07 + Math.sin(key) * 0.03, wr = hw + grow + (q() - 0.5) * 0.07 + Math.cos(key) * 0.03; e.push([P[i].x + nx * wl + dx, P[i].z + nz * wl + dz, P[i].x - nx * wr + dx, P[i].z - nz * wr + dz]); }
+    for (let i = 0; i < e.length - 1; i++) { const a = e[i], b = e[i + 1], q = [[a[0], a[1]], [a[2], a[3]], [b[0], b[1]], [b[2], b[3]]]; for (const k of [0, 2, 1, 1, 2, 3]) { pos.push(q[k][0], y, q[k][1]); uv.push(q[k][0], q[k][1]); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.receiveShadow = mat !== shadeMat; m.renderOrder = order; scene.add(m); };
+  for (const L of LANES) strip(L, 0.47, 0.034, shadeMat, 0.03, 0.06, 0.08, 2); for (const L of LANES) strip(L, 0.47, 0.037, M.fibre, 0.035, 0, 0, 2); for (const L of LANES) strip(L, 0.47, 0.04, M.path, 0, 0, 0, 2);
   // far: sky, moon, stars, horizon sea, the cliff and its lighthouse
   const skyMat = new THREE.ShaderMaterial({ uniforms: { map: { value: paperW }, uDawn: { value: 0 } },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
@@ -139,6 +165,10 @@ export async function createHarbour(frame, SHAPES) {
   // each layer stands close enough behind the next that the floor never shows through a trough (no flat bands anywhere)
   seaLayer('wave_c', 4.3, 0.8, 3, 0.62, 0.02, 1); seaLayer('wave_a', 4.72, 1.0, 2, 0.95, 0.025, -1); seaLayer('wave_c', 5.22, 1.2, 2, 0.7, 0.03, 1);
   seaLayer('wave_a', 5.82, 1.45, 2, 1.1, 0.035, -1); seaLayer('wave_c', 6.54, 1.75, 2, 0.55, 0.04, 1); seaLayer('wave_a', 7.4, 2.1, 1, 0.82, 0.045, -1);
+  const LAMPS = [[-3.15, 2.9], [1.4, 3.5], [-0.85, 2.1], [1.8, 1.05], [1.25, -2.25], [-1.55, -1.05], [-2.9, -3.3], [-0.35, -4.2]];
+  const lampMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 0.86, 0.3) }), lampGeo = new THREE.CircleGeometry(0.075, 12), haloMat = new THREE.SpriteMaterial({ map: pLight, color: 0xffa040, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.5 });
+  const lampOn = (g, x, y, s = 1) => { const d = new THREE.Mesh(lampGeo, lampMat); d.position.set(x, y, 0.036); d.scale.setScalar(s); const hl = new THREE.Sprite(haloMat); hl.position.set(x, y, 0.05); hl.scale.setScalar(0.55 * s); g.add(d, hl); };
+  for (const [x, z] of LAMPS) { const g = stand(cutout('lamp_post', { height: 1.0, mat: M.post, step: 5, cast: true }), x, z, { amp: 0.6 }); lampOn(g, (POST_LAMP[0] - 0.5) * g.userData.w, (1 - POST_LAMP[1]) * g.userData.h, 1.7); }
   // build spots: a paper base plate with a soft amber circle breathing on it (brighter while something can be afforded)
   const plateGeo = new THREE.CircleGeometry(0.4, 9), spotGeo = new THREE.PlaneGeometry(1.5, 1.5);
   const slotMarks = SLOTS.map((s, i) => { const g = new THREE.Group(), plate = new THREE.Mesh(plateGeo, M.slot);
@@ -146,7 +176,7 @@ export async function createHarbour(frame, SHAPES) {
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
       fragmentShader: `uniform float uI; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float ring = smoothstep(0.36, 0.41, r) * (1.0 - smoothstep(0.46, 0.51, r)); float core = (1.0 - smoothstep(0.0, 0.42, r)) * 0.42; float halo = (1.0 - smoothstep(0.4, 1.0, r)) * 0.22;
         float a = (ring * 0.9 + core + halo) * uI; gl_FragColor = vec4(vec3(1.0, 0.58, 0.16) * a, a); }` }));
-    plate.rotation.x = -Math.PI / 2; plate.rotation.z = i * 0.7; plate.position.y = 0.03; plate.receiveShadow = true; spot.rotation.x = -Math.PI / 2; spot.position.y = 0.05; spot.renderOrder = 2; g.add(plate, spot); g.position.set(s.x, 0, s.z); scene.add(g); return { g, spot }; });
+    plate.rotation.x = -Math.PI / 2; plate.rotation.z = i * 0.7; plate.position.y = 0.046; plate.receiveShadow = true; spot.rotation.x = -Math.PI / 2; spot.position.y = 0.06; spot.renderOrder = 2; g.add(plate, spot); g.position.set(s.x, 0, s.z); scene.add(g); return { g, spot }; });
 
   // ---------- light ----------
   const hemi = new THREE.HemisphereLight(0x3d4c9c, 0x0a0c1c, 1.15); scene.add(hemi);
@@ -158,7 +188,7 @@ export async function createHarbour(frame, SHAPES) {
   scene.add(beam, beam.target);
   const sun = new THREE.DirectionalLight(0xffb98a, 0); sun.castShadow = false; sun.shadow.mapSize.set(1536, 1536); sun.shadow.autoUpdate = false;
   Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 70 }); sun.shadow.bias = -0.0015; sun.shadow.normalBias = 0.04; sun.shadow.radius = 2.5; scene.add(sun, sun.target);
-  let shadowMode = '', bake = 3; const setShadowMode = m => { if (m === shadowMode) return; shadowMode = m; beam.castShadow = m === 'night'; sun.castShadow = m === 'dawn'; beam.shadow.needsUpdate = true; sun.shadow.needsUpdate = true; };
+  let shadowMode = '', bake = 3; const setShadowMode = m => { if (m === shadowMode) return; shadowMode = m; beam.castShadow = false; sun.castShadow = true; beam.shadow.needsUpdate = true; sun.shadow.needsUpdate = true; };
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: pLight, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); halo.position.copy(LANTERN); halo.position.z += 0.1; scene.add(halo);
   const flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: pFlare, color: 0xffd9a0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); flare.position.copy(halo.position); scene.add(flare);
   const VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`;
@@ -214,9 +244,9 @@ export async function createHarbour(frame, SHAPES) {
       _m.makeScale(0, 0, 0); scraps.setMatrixAt(i, _m); } scraps.instanceMatrix.needsUpdate = true; }
 
   // ---------- enemies: one instanced mesh per kind (rim + body + round amber eyes in one geometry) ----------
-  const castMat = new THREE.ShaderMaterial({ uniforms: { uL: { value: LANTERN }, uDir: { value: new THREE.Vector3(0, -1, 0) }, uCone: { value: 0.9 }, uPen: { value: 0.95 }, uA: { value: 1 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: `uniform vec3 uL; varying vec3 vW; void main(){ vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); float t = min(1.9, (uL.y - 0.035) / max(0.3, uL.y - w.y)); vW = uL + (w.xyz - uL) * t; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
-    fragmentShader: `uniform vec3 uL, uDir; uniform float uCone, uPen, uA; varying vec3 vW; void main(){ vec3 d = vW - uL; float k = smoothstep(uCone, uPen, dot(d / max(length(d), 0.001), uDir)); gl_FragColor = vec4(0.015, 0.02, 0.06, clamp(uA * mix(0.3, 0.85, k), 0.0, 1.0)); }` });
+  const castMat = new THREE.ShaderMaterial({ uniforms: { uSun: { value: new THREE.Vector3(0.4, 0.6, 0.6) }, uA: { value: 0.55 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: `uniform vec3 uSun; void main(){ vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); vec3 g = w.xyz - uSun * (max(0.0, w.y - 0.045) / max(0.25, uSun.y)); g.y = 0.045; gl_Position = projectionMatrix * viewMatrix * vec4(g, 1.0); }`,
+    fragmentShader: `uniform float uA; void main(){ gl_FragColor = vec4(0.015, 0.02, 0.06, uA); }` });
   const kinds = {};
   for (const [kind, [shape, h, eyes, er, ally]] of Object.entries(LOOK)) {
     const O = outline(shape, { height: h, step: ally ? 14 : 20, rough: ally ? 1.6 : 2.6, fr0: kind === 'boss' ? 7 : ally ? 9 : 12, fr1: 2, solid: true }), S = SHAPES[shape], pos = [], col = [];
@@ -226,11 +256,15 @@ export async function createHarbour(frame, SHAPES) {
     const disc = (cx, cy, r, c, z) => { for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283, b = (i + 1) / 14 * 6.283; pos.push(cx, cy, z, cx + Math.cos(a) * r, cy + Math.sin(a) * r, z, cx + Math.cos(b) * r, cy + Math.sin(b) * r, z); col.push(...c, ...c, ...c); } };
     for (const [fx, fy] of eyes) { const x = (fx - 0.5) * S.w * O.k, y = (1 - fy) * h, r = Math.max(0.03, er * h * 1.15); disc(x, y, r, [1.25, 0.66, 0.16], 0.01); if (ally) continue;   // a soldier's "eye" is the lantern he carries
       disc(x, y - r * 0.1, r * 0.42, [0.05, 0.04, 0.08], 0.012); disc(x + r * 0.22, y + r * 0.24, r * 0.17, [1.6, 1.5, 1.2], 0.014); }
-    if (kind === 'hero') { const P = (fx, fy) => [(fx - 0.5) * S.w * O.k, (1 - fy) * h], q = [P(0.44, 0.31), P(0.84, 0.31), P(0.9, 0.7), P(0.36, 0.7)], cape = [1.05, 0.2, 0.1];
-      for (const k of [0, 2, 1, 0, 3, 2]) { pos.push(q[k][0], q[k][1], 0.008); col.push(...cape); }
-      const [lx, ly] = P(0.1, 0.44); disc(lx, ly, h * 0.085, [0.75, 0.36, 0.08], 0.01); disc(lx, ly, h * 0.05, [1.7, 1.05, 0.4], 0.012); }
+    if (kind === 'hero') {   // the cape: his own outline, drawn in a little and cut off with two slanted snips (a piece of cut paper, not a box)
+      const g = flat.toNonIndexed(), p = g.attributes.position, cape = [1.05, 0.2, 0.1];
+      const clip = (poly, f) => { const o = []; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], fa = f(a), fb = f(b); if (fa >= 0) o.push(a); if ((fa >= 0) !== (fb >= 0)) { const t = fa / (fa - fb); o.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } } return o; };
+      for (let i = 0; i < p.count; i += 3) { let poly = [0, 1, 2].map(k => [p.getX(i + k) * 0.86 - 0.02 * h, (p.getY(i + k) - h * 0.45) * 0.93 + h * 0.45]);
+        poly = clip(poly, q => q[1] - (h * 0.24 - q[0] * 0.16)); poly = clip(poly, q => (h * 0.72 + q[0] * 0.2) - q[1]); poly = clip(poly, q => h * 0.16 - q[0]);
+        for (let k = 1; k < poly.length - 1; k++) for (const q of [poly[0], poly[k], poly[k + 1]]) { pos.push(q[0], q[1], 0.008); col.push(...cape); } } }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true }), CAP[kind]); mesh.frustumCulled = false; mesh.count = 0; scene.add(mesh);
+    { const uv = []; for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] * 0.9, pos[i + 1] * 0.9); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); }
+    const mesh = new THREE.InstancedMesh(geo, grainy(new THREE.MeshBasicMaterial({ vertexColors: true, map: paperW })), CAP[kind]); mesh.frustumCulled = false; mesh.count = 0; scene.add(mesh);
     mesh.setColorAt(0, _c.setRGB(1, 1, 1));
     const cast = new THREE.InstancedMesh(flat, castMat, CAP[kind]); cast.frustumCulled = false; cast.count = 0; cast.renderOrder = 2; scene.add(cast);
     kinds[kind] = { mesh, cast, h, w: S.w * O.k, n: 0 };
@@ -256,9 +290,10 @@ export async function createHarbour(frame, SHAPES) {
   function syncTools(game) {
     const bornAt = new Map(toolObjs.map(o => [o.slot + o.type + o.lvl, o.born]));
     for (const o of toolObjs) scene.remove(o.g); toolObjs.length = 0;
-    game.tools.forEach((t, i) => { if (!t) return; const [shape, h] = TOOL_SHAPE[t.type], s = SLOTS[i], g = cutout(shape, { height: h * (1 + 0.07 * (t.lvl - 1)), mat: M.prop, step: 6, rough: 1.2, cast: false, receive: false });
+    game.tools.forEach((t, i) => { if (!t) return; const [shape, h] = TOOL_SHAPE[t.type], s = SLOTS[i], g = cutout(shape, { height: h * (1 + 0.07 * (t.lvl - 1)), mat: M.towerP[TOWER_ORDER.indexOf(t.type)], step: 6, rough: 1.2, cast: true, receive: false });
+      lampOn(g, (TOOL_LAMP[t.type][0] - 0.5) * g.userData.w, (1 - TOOL_LAMP[t.type][1]) * g.userData.h, 1.15);
       for (let k = 0; k < t.lvl; k++) { const pip = new THREE.Mesh(pipGeo, t.lvl === 4 ? pipMax : pipMat); pip.position.set((k - (t.lvl - 1) / 2) * 0.15, g.userData.h + 0.14, 0.02); g.add(pip); }
-      g.position.set(s.x, 0, s.z + 0.05); scene.add(g); toolObjs.push({ g, slot: i, type: t.type, lvl: t.lvl, h: g.userData.h, born: bornAt.get(i + t.type + t.lvl) ?? clock }); });
+      g.position.set(s.x, 0, s.z + 0.05); scene.add(g); toolObjs.push({ g, slot: i, type: t.type, lvl: t.lvl, h: g.userData.h, r: t.type === 'barracks' ? TOWERS.barracks.range : towerStat(t).range, born: bornAt.get(i + t.type + t.lvl) ?? clock }); });
   }
   const ringMat = new THREE.ShaderMaterial({ uniforms: { uR: { value: 0 }, uI: { value: 0 }, uW: { value: 0.012 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexShader: VS,
     fragmentShader: `uniform float uR, uI, uW; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float e = 0.0012; float a = smoothstep(uR - uW - e, uR - uW, r) * (1.0 - smoothstep(uR, uR + e, r)) * uI; gl_FragColor = vec4(vec3(1.0, 0.86, 0.6) * a, a); }` });
@@ -360,7 +395,7 @@ export async function createHarbour(frame, SHAPES) {
     const BEAM = Math.min(BEAM_MAX, POOL * Math.pow(dist, 1.1) * clamp(dist / LANTERN.y, 1, 2.4)), GLOW = 13; beam.intensity = Math.max(BEAM * bI, GLOW * glow, 0.001); SPOT_FLOOR.value = clamp(GLOW * glow / beam.intensity); beam.angle = clamp(Math.atan(radius * 1.25 / dist) * (1 - 0.3 * gather), 0.05, 0.6); beam.target.position.copy(beamAim);
     _t.normalize(); _r.crossVectors(_t, _u.set(0, 1, 0)).normalize(); _u.crossVectors(_r, _t).normalize(); const rad = Math.tan(beam.angle) * len; cone.position.copy(LANTERN); cone.lookAt(beamAim); cone.scale.set(rad, rad, len);
     coneMat.uniforms.uI.value = CONE * bI; coneMat.uniforms.uTime.value = ti; const du = dustMat.uniforms; du.uO.value.copy(LANTERN); du.uDir.value.copy(_t); du.uRight.value.copy(_r); du.uUp.value.copy(_u); du.uLen.value = len; du.uRad.value = rad; du.uI.value = 2.4 * bI; du.uTime.value = ti;
-    const cu = castMat.uniforms; cu.uDir.value.copy(_t); cu.uCone.value = Math.cos(beam.angle); cu.uPen.value = Math.cos(beam.angle * (1 - beam.penumbra)); cu.uA.value = clamp(bI + 0.4) * (1 - D);
+    castMat.uniforms.uSun.value.copy(sun.position).sub(sun.target.position).normalize(); castMat.uniforms.uA.value = 0.5;
     const hs = 0.55 * Math.sqrt(lampOn) + flashSpike * 2.6 + after * 0.25; halo.scale.setScalar(hs); halo.material.opacity = clamp(0.5 * lampOn + flashSpike); flare.scale.setScalar(hs * 1.5 + flashSpike * 5); flare.material.opacity = clamp(0.12 * lampOn + flashSpike * 0.9);
     towerGlow.color.copy(towerGlow.userData.base).multiplyScalar(clamp(lampOn * flick + flashSpike, 0, 2));
     if (st.range) { aimRing.position.set(st.range.x, 0.05, st.range.z); aimRing.scale.setScalar(st.range.r); } aimRing.material.opacity = st.range ? 0.6 : 0;
@@ -373,7 +408,13 @@ export async function createHarbour(frame, SHAPES) {
       slotMarks.forEach((d, i) => { d.g.visible = !game || !game.tools[i]; d.spot.material.uniforms.uI.value = (can ? 1.0 : 0.42) * (0.78 + 0.22 * Math.sin(ti * 2.6 + i * 0.8)) * (1 - 0.8 * D); }); }
     // --- windows: the village goes dark house by house as shadows get through
     const frac = game ? game.windows / game.windowsMax : 1;
-    houses.forEach((h, i) => { const on = clamp(frac * houses.length - (houses.length - 1 - i)), w = on * (1 - sstep(0.3, 0.9, st.dawn)) * (0.95 + 0.05 * Math.sin(ti * 6 + i * 3)) * (1 - st.lost * 0.9); h.userData.glow.color.copy(h.userData.glow.userData.base).multiplyScalar(w); });
+    houses.forEach((h, i) => { const on = clamp(frac * houses.length - (houses.length - 1 - i)), w = on * (1 - sstep(0.3, 0.9, st.dawn)) * (0.95 + 0.05 * Math.sin(ti * 6 + i * 3)) * (1 - st.lost * 0.9); h.userData.glow.color.copy(h.userData.glow.userData.base).multiplyScalar(w); h.userData.on = w; });
+    { let k = 0; const P = POOLS.value, add = (x, z, r, w) => { if (k < 32) P[k++].set(x, z, r, w); };
+      if (game && !game.hero.dead) add(game.hero.x, game.hero.z, 1.5, 0.8 * (0.93 + 0.07 * Math.sin(ti * 6)));                 // the keeper's lantern
+      LAMPS.forEach((p, i) => add(p[0], p[1], 1.9, 1.0 * (0.94 + 0.06 * Math.sin(ti * 4 + i * 2))));                               // lantern posts along the road
+      houses.forEach(h => add(h.position.x, -4.5, 2.1, 0.7 * (h.userData.on || 0)));                                               // window light spilling on the ground
+      for (const o of toolObjs) add(SLOTS[o.slot].x, SLOTS[o.slot].z, -o.r, 0.6);                                                  // a tower's lamp: its reach, faintly
+      POOL_N.value = k; POOL_K.value = (1 - D) * (1 - 0.9 * st.lost); }
     // --- flash ring, paper shake, the sea
     ringMat.uniforms.uR.value = Math.min(st.fr, Math.max(0, tf) * 7) / (RING / 2); ringMat.uniforms.uI.value = tf >= 0 ? 0.95 * (1 - sstep(0.35, 0.8, tf)) : 0; ringMat.uniforms.uW.value = 0.009 + 0.004 * clamp(tf);
     const shaking = clock < shakeUntil;
@@ -383,10 +424,10 @@ export async function createHarbour(frame, SHAPES) {
     // --- dawn after the last wave
     for (const m of dawnMats) m.color.lerpColors(m.userData.night, m.userData.dawn, D); skyMat.uniforms.uDawn.value = D;
     hemi.color.setRGB(lerp(0.045, 1.0, D), lerp(0.07, 0.62, D), lerp(0.33, 0.52, D)); hemi.groundColor.setRGB(lerp(0.003, 0.2, D), lerp(0.004, 0.11, D), lerp(0.012, 0.16, D)); hemi.intensity = lerp(1.15, 0.8, D); fill.intensity = lerp(0.75, 0.25, D);
-    const el = lerp(0.62, 0.115, sstep(0, 1, st.dawn)), az = 0.62; sun.position.set(-Math.sin(az) * Math.cos(el) * 30, Math.sin(el) * 30, -Math.cos(az) * Math.cos(el) * 30 - 2); sun.target.position.set(0, 0, -1.5); sun.intensity = 2.6 * D * clamp(0.45 / Math.sin(el), 1, 4.2); sun.color.setRGB(1, lerp(0.55, 0.72, D), lerp(0.36, 0.5, D));
+    const el = lerp(0.62, 0.115, sstep(0, 1, st.dawn)), az = 0.62; sun.position.set(-Math.sin(az) * Math.cos(el) * 30, Math.sin(el) * 30, -Math.cos(az) * Math.cos(el) * 30 - 2); sun.target.position.set(0, 0, -1.5); sun.intensity = lerp(MOON, 2.6 * clamp(0.45 / Math.sin(el), 1, 4.2), D); sun.color.setRGB(lerp(0.66, 1, D), lerp(0.74, 0.72, D), lerp(1.0, 0.5, D));   // moonlight at night, low sun at dawn
     moonMat.color.setRGB(1.0 - 0.5 * D, 0.96 - 0.5 * D, 0.8 - 0.35 * D); starMat.opacity = (1 - D) * (0.7 + 0.2 * Math.sin(ti * 2));
     if (D > 0.6 && D < 0.999 && frameNo % 40 === 0) burst((Math.random() - 0.5) * 5, -1 + Math.random() * 3, 2.5, 10, FEST, 6);
-    if (shadowMode === 'night') { if (bake > 0 || (shaking && frameNo % 3 === 0)) { beam.shadow.needsUpdate = true; bake--; } if (!shaking && st.wasShaking) beam.shadow.needsUpdate = true; } else if ((st.dawn < 0.999 && frameNo % 3 === 0) || bake > 0) { sun.shadow.needsUpdate = true; bake--; }
+    if (shadowMode === 'night') { if (bake > 0 || (shaking && frameNo % 3 === 0)) { sun.shadow.needsUpdate = true; bake--; } if (!shaking && st.wasShaking) sun.shadow.needsUpdate = true; } else if ((st.dawn < 0.999 && frameNo % 3 === 0) || bake > 0) { sun.shadow.needsUpdate = true; bake--; }
     st.wasShaking = shaking; st.fade = 1;
     grade.uniforms.uDawn.value = D; grade.uniforms.uFade.value = st.fade; grade.uniforms.uTime.value = ti % 10; grade.uniforms.uExp.value = lerp(1, 0.5, gather) * (1 - 0.45 * st.lost);
     bloom.strength = Math.min(BLOOM_MAX, 0.24 + flashSpike * 0.3); eMat.uniforms.uTime.value = clock; if (eDirty) { for (const k of ['position', 'aVel', 'aData', 'aCol']) eGeo.attributes[k].needsUpdate = true; eDirty = false; } updateScraps();

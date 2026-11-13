@@ -5,7 +5,7 @@ import { createHarbour } from './harbour.js';
 import * as audio from './audio.js';
 import * as net from './net.js';
 
-export const VERSION = '3.0.1';
+export const VERSION = '3.1.0';
 const Q = new URLSearchParams(location.search), DEBUG = Q.has('debug'), AUTO = Q.has('auto');
 const $ = (s, el = document) => el.querySelector(s), ui = $('#ui'), frame = $('#frame');
 const h = html => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -43,7 +43,7 @@ const moonIc = f => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><def
 const paper = (inner, cls = '', o = {}) => `<${o.tag || 'div'} class="lift ${o.pin ? 'pin' : ''} ${o.out || ''}" ${o.attrs || ''}><span class="paper ${cls}">${inner}</span></${o.tag || 'div'}>`;
 const btn = (label, a, cls = '', extra = '') => paper(label, 'btn ' + cls, { tag: 'button', attrs: `data-a="${a}" ${extra}` });
 const tab = (inner, a, label) => paper(inner, 'tab', { tag: 'button', attrs: `data-a="${a}" aria-label="${label}"` });
-const TOOL_ICON = { archer: 'watch', barracks: 'hut', lens: 't_lens', beacon: 't_beacon' };
+const TOOL_ICON = { archer: 'tw_archer', barracks: 'hut', lens: 'tw_lens', beacon: 'tw_beacon' };
 const LAMP = { body: 'M22 62 C30 56 74 56 82 62 L90 57 L95 63 L84 72 C80 84 66 90 62 92 L66 100 L38 100 L42 92 C36 90 24 84 21 72 L8 66 L10 59 Z M45 57 L46 48 L58 47.6 L59 57 Z', flame: 'M52 6 C63 21 67 30 60 40 C57 46 47 46 44 40 C38 30 45 21 52 6 Z' };
 const lampIc = `<svg class="ic" viewBox="0 0 104 104" aria-hidden="true"><path fill-rule="evenodd" d="${LAMP.body} ${LAMP.flame}"/></svg>`;
 
@@ -118,7 +118,7 @@ function showHud() {
   const el = h(`<div id="hud"><div class="notes">${paper('', 'note', { pin: true, attrs: 'id="n-wave"' })}${paper('', 'note', { pin: true, attrs: 'id="n-win"' })}${paper('', 'note', { pin: true, attrs: 'id="n-shard"' })}</div>
     <div class="tabs">${tab(ic('note'), 'note', '배경음')}${tab(ic('pause'), 'pause', '멈춤')}</div>
     <div id="tip" class="lift pin hide"><span class="paper"></span></div><div id="menu" class="hide"></div>
-    <div class="bottom">${skillBtn('hero', shapeIc('v_old'), '등대지기')}${skillBtn('flash', lampIc, '섬광')}${skillBtn('rein', shapeIc('guard'), '지원군')}<span style="flex:1"></span><span id="call"></span>${paper(ic('slow'), 'tab', { tag: 'button', attrs: 'data-a="spd" id="spd" aria-label="빠르기"' })}</div>${DEBUG ? '<div id="dbg"></div>' : ''}</div>`);
+    <div class="bottom">${skillBtn('hero', shapeIc('keeper'), '등대지기')}${skillBtn('flash', lampIc, '섬광')}${skillBtn('rein', shapeIc('guard'), '지원군')}<span style="flex:1"></span><span id="call"></span>${paper(ic('slow'), 'tab', { tag: 'button', attrs: 'data-a="spd" id="spd" aria-label="빠르기"' })}</div>${DEBUG ? '<div id="dbg"></div>' : ''}</div>`);
   onTap(el, (d, t) => { if (!game) return;
     if (d.a === 'note') { save.set.music = !save.set.music; persist(); audio.configure(save.set); } else if (d.a === 'pause') showPause();
     else if (d.a === 'call') game.callWave(); else if (d.a === 'spd') { speed = speed === 1 ? 2 : 1; $('.paper', t).innerHTML = ic(speed === 2 ? 'fast' : 'slow'); $('.paper', t).classList.toggle('on', speed === 2); }
@@ -271,4 +271,9 @@ window.__ll = {
   },
 };
 showTitle();
+// ?shot=N (tools/artcheck): a scripted night played up to wave N, then held still with the interface hidden, for a picture of the stage alone
+if (Q.has('shot')) { const want = +Q.get('shot') || 6; document.body.classList.add('shot'); startRun({ bot: 'smart', seed: 3 }); stage.st.hold = true; stage.setScale(1);
+  for (let t = 0; t < 900 && !game.done && !(game.wave >= want && game.enemies.length >= 6 && game.enemies.some(e => e.z < 2)); t += 0.5) { for (let i = 0; i < 15; i++) advance(1 / 30); stage.frame(0.5, game); }
+  for (let i = 0; i < 40; i++) stage.frame(1 / 30, game);
+  paused = true; }
 requestAnimationFrame(tick);
