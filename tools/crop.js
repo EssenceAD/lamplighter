@@ -7,6 +7,9 @@ const SHEETS = {
     cliff_a: [85, 115, 850, 660], cliff_b: [800, 125, 2040, 470], boat: [905, 610, 1280, 835], pier: [1310, 815, 1935, 1040],
     t_bell: [60, 830, 850, 1960], t_beacon: [890, 1065, 1160, 1740], barrels: [930, 1730, 1260, 1960], rock: [1190, 1270, 2040, 2040],
   },
+  '../ref/waves.png': { wave_1: [70, 150, 2000, 592], wave_2: [80, 600, 2000, 870], wave_3: [70, 930, 2000, 1345] },
+  '../ref/crag_a.png': { crag_a: [4, 230, 2044, 1900] },
+  '../ref/crag_b.png': { crag_b: [4, 130, 2044, 1920] },
 };
 (async () => {
   for (const [file, rects] of Object.entries(SHEETS)) {

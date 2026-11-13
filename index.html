@@ -15,8 +15,7 @@
 <style>
   /* Everything on screen is cut paper pinned over the stage: same paper scan, same ink, same amber. */
   :root { --ink: #17131f; --paper: #efe1c6; --paper-d: #d9c7a4; --edge: #8f7c58; --amber: #f2a03c; --navy: #1b2248;
-    --font: "Fraunces", "Hahmlet", "Apple SD Gothic Neo", serif;
-    --rag: polygon(1% 6%, 7% 1%, 16% 4%, 27% 0, 39% 3%, 52% 1%, 63% 4%, 76% 0, 88% 3%, 97% 1%, 100% 9%, 98% 24%, 100% 41%, 97% 58%, 100% 74%, 98% 91%, 94% 100%, 82% 97%, 69% 100%, 55% 96%, 41% 100%, 28% 97%, 15% 100%, 5% 97%, 0 90%, 2% 73%, 0 55%, 3% 38%, 0 22%); }
+    --font: "Fraunces", "Hahmlet", "Apple SD Gothic Neo", serif; --torn: url(./assets/paper/torn.png); }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: #05060f; overflow: hidden; overscroll-behavior: none; touch-action: none;
     font: 500 16px/1.4 var(--font); color: var(--ink); user-select: none; -webkit-user-select: none; }
@@ -30,7 +29,12 @@
   svg.ic { width: 1.35em; height: 1.35em; fill: currentColor; flex: none; vertical-align: -0.3em; }
   b, .num { font-weight: 800; }
   /* a sheet of cut paper: real paper scan under a tint, ragged edge, soft shadow from the stage light */
-  .paper { background: var(--paper) url(./assets/paper/Paper001_Color.jpg) center / 340px; background-blend-mode: multiply; clip-path: var(--rag); color: var(--ink); }
+  .paper { background: var(--paper) url(./assets/paper/Paper001_Color.jpg) center / 340px; background-blend-mode: multiply; color: var(--ink); }
+  /* the edge of every paper piece is a real torn edge: a mask cut from a CC0 scan (tools/torn.js), nine-sliced so the tear keeps its scale */
+  .paper, .torn { -webkit-mask-box-image-source: var(--torn); -webkit-mask-box-image-slice: 40 fill; -webkit-mask-box-image-width: 14px; -webkit-mask-box-image-repeat: round;
+    mask-border-source: var(--torn); mask-border-slice: 40 fill; mask-border-width: 14px; mask-border-repeat: round; }
+  h1 > .paper, .sheet, .pick, .btn.big { -webkit-mask-box-image-width: 20px; mask-border-width: 20px; }
+  @supports not ((-webkit-mask-box-image-source: none) or (mask-border-source: none)) { .paper, .torn { -webkit-mask: var(--torn) center / 100% 100% no-repeat; mask: var(--torn) center / 100% 100% no-repeat; } }
   .lift { filter: drop-shadow(0 3px 0 rgba(60, 40, 20, .55)) drop-shadow(0 8px 10px rgba(0, 0, 0, .45)); }
   .pin { position: relative; }
   .pin::before { content: ""; position: absolute; left: 50%; top: -5px; width: 13px; height: 13px; margin-left: -6px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd08a, #b5601c 60%, #5a2a0c); box-shadow: 0 2px 2px rgba(0, 0, 0, .5); z-index: 2; }
@@ -53,17 +57,19 @@
   .body { flex: 1; overflow-y: auto; touch-action: pan-y; padding: 10px 4px 8px; }
   .strip { display: flex; align-items: center; gap: 12px; padding: 13px 16px; margin-bottom: 11px; } .strip .t { flex: 1; min-width: 0; } .strip .t b { display: block; font-size: 17px; } .strip .t span { font-size: 15px; color: #54452f; }
   .strip .btn { min-height: 46px; padding: 8px 14px; font-size: 16px; } .strip.done { opacity: .8; }
-  .dots { display: flex; gap: 5px; margin-top: 5px; } .dots i { width: 11px; height: 11px; background: #b9a888; clip-path: polygon(50% 0, 100% 45%, 78% 100%, 18% 96%, 0 40%); } .dots i.on { background: #d9801c; }
+  .dots { display: flex; gap: 5px; margin-top: 5px; } .dots i { width: 12px; height: 12px; background: #b9a888; -webkit-mask: var(--torn) center / 100% 100% no-repeat; mask: var(--torn) center / 100% 100% no-repeat; } .dots i.on { background: #d9801c; }
   h3 { font: 700 16px "Hahmlet", serif; color: var(--paper); margin: 12px 6px 8px; text-shadow: 0 1px 4px #000; }
   .rank { display: flex; gap: 10px; padding: 9px 12px; font-size: 16px; border-bottom: 1.5px dashed rgba(60, 40, 20, .3); } .rank b { width: 28px; color: #a8560f; } .rank span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rank.me { background: rgba(242, 160, 60, .28); }
   .ranks { padding: 6px 4px 10px; }
   /* in a night: three pinned notes, one line each */
-  #hud .notes { position: absolute; left: 10px; top: max(12px, env(safe-area-inset-top)); display: flex; flex-direction: column; gap: 9px; align-items: flex-start; }
-  .note { display: flex; align-items: center; gap: 9px; padding: 8px 15px 9px 12px; font-size: 17px; white-space: nowrap; }
-  .note .num { font-size: 22px; line-height: 1; } .note svg.ic { width: 26px; height: 26px; }
+  #hud .notes { position: absolute; left: 8px; top: max(11px, env(safe-area-inset-top)); display: flex; gap: 6px; align-items: center; }
+  .note { display: flex; align-items: center; gap: 6px; padding: 6px 12px 7px 9px; font-size: 16px; white-space: nowrap; min-height: 40px; }
+  .note .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .note .num { font-size: 21px; line-height: 1; } .note svg.ic { width: 23px; height: 23px; }
   .note:nth-child(1) { transform: rotate(-1.6deg); } .note:nth-child(2) { transform: rotate(1.1deg); margin-left: 5px; } .note:nth-child(3) { transform: rotate(-0.7deg); }
   .note.bump { animation: bump .25s; } @keyframes bump { 40% { transform: scale(1.12) rotate(-2deg); } }
-  #hud .tabs { position: absolute; right: 10px; top: max(12px, env(safe-area-inset-top)); display: flex; gap: 8px; }
+  #hud .tabs { position: absolute; right: 8px; top: max(11px, env(safe-area-inset-top)); display: flex; gap: 6px; } #hud .tabs .tab { width: 44px; height: 42px; }
+  @media (max-width: 400px) { #hud .tabs { top: calc(max(11px, env(safe-area-inset-top)) + 50px); } }
   #hud .bottom { position: absolute; left: 10px; right: 10px; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; align-items: flex-end; gap: 8px; }
   #call .btn { font-size: 16px; padding: 10px 14px; min-height: 50px; }
   #flash { width: 104px; height: 112px; flex: none; position: relative; display: grid; place-items: center; }
@@ -73,12 +79,12 @@
   #flash.ready .lampbody { fill: #2a1a12; stroke: #ffd08a; } #flash.ready { animation: sway 1.2s ease-in-out infinite; }
   #flash em { position: absolute; bottom: 9px; left: 0; right: 0; text-align: center; font: 800 16px "Hahmlet", serif; color: var(--paper); font-style: normal; }
   @keyframes sway { 50% { transform: rotate(-3deg) scale(1.04); } }
-  #tip { position: absolute; left: 50%; top: 31%; transform: translateX(-50%) rotate(-1deg); max-width: 84%; padding: 13px 20px 14px; font-size: 17px; text-align: center; pointer-events: none; transition: opacity .5s; animation: drop .3s ease-out; }
-  @keyframes drop { from { transform: translate(-50%, -26px) rotate(-5deg); opacity: 0; } }
+  #tip { position: absolute; left: 10px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 72px); transform: rotate(-1deg); max-width: calc(100% - 136px); word-break: keep-all; padding: 13px 20px 14px; font-size: 17px; text-align: center; pointer-events: none; transition: opacity .5s; animation: drop .3s ease-out; }
+  @keyframes drop { from { transform: translateY(22px) rotate(-4deg); opacity: 0; } }
   /* round build menu: paper tokens */
   #menu { position: absolute; inset: 0; pointer-events: none; }
   .mi { position: absolute; width: 70px; height: 70px; margin: -35px 0 0 -35px; pointer-events: auto; animation: popin .16s ease-out both; }
-  .mi > span { position: absolute; inset: 0; display: grid; place-items: center; clip-path: polygon(50% 0, 72% 6%, 91% 18%, 100% 40%, 97% 63%, 84% 84%, 62% 97%, 38% 100%, 16% 88%, 3% 68%, 0 44%, 9% 21%, 28% 5%); }
+  .mi > span { position: absolute; inset: 0; display: grid; place-items: center; }
   .mi svg.ic { width: 30px; height: 34px; margin-top: -12px; } .mi small { position: absolute; bottom: 7px; left: 0; right: 0; text-align: center; font-size: 15px; font-weight: 800; color: #8a4a10; z-index: 1; }
   .mi i { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 2px; font-style: normal; font-size: 15px; font-weight: 700; color: var(--paper); white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
   .mi.poor > span { background-color: #9a9080; } .mi.poor small { color: #5a2a10; }
@@ -92,9 +98,9 @@
   .sheet .row { display: flex; gap: 10px; margin-top: 16px; } .sheet .row .btn { flex: 1; padding: 11px 6px; font-size: 17px; }
   .sheet input[type=text] { width: 100%; font: inherit; font-size: 19px; padding: 11px; border: 2px dashed var(--edge); background: rgba(255, 250, 235, .7); text-align: center; margin-top: 8px; user-select: text; -webkit-user-select: text; color: var(--ink); }
   .setrow { display: flex; align-items: center; gap: 10px; margin: 12px 0; text-align: left; font-size: 16px; } .setrow span { width: 70px; font-weight: 700; } .setrow input[type=range] { flex: 1; accent-color: #d9801c; }
-  .tog { width: 58px; height: 32px; background: #b9a888; position: relative; flex: none; clip-path: polygon(3% 12%, 97% 4%, 100% 88%, 5% 96%, 0 50%); } .tog::after { content: ""; position: absolute; top: 5px; left: 6px; width: 22px; height: 22px; background: var(--paper); clip-path: polygon(50% 0, 100% 40%, 80% 100%, 15% 95%, 0 35%); transition: .15s; } .tog.on { background: #e08a1c; } .tog.on::after { left: 30px; }
+  .tog { width: 58px; height: 32px; background: #b9a888; position: relative; flex: none; -webkit-mask-box-image-source: var(--torn); -webkit-mask-box-image-slice: 40 fill; -webkit-mask-box-image-width: 9px; -webkit-mask-box-image-repeat: round; mask-border-source: var(--torn); mask-border-slice: 40 fill; mask-border-width: 9px; mask-border-repeat: round; } .tog::after { content: ""; position: absolute; top: 5px; left: 6px; width: 22px; height: 22px; background: var(--paper); clip-path: polygon(50% 0, 100% 40%, 80% 100%, 15% 95%, 0 35%); transition: .15s; } .tog.on { background: #e08a1c; } .tog.on::after { left: 30px; }
   /* reward cards: ragged paper, a big ink drawing, a title, one line */
-  .cardmodal .sheet { max-width: 390px; padding: 20px 10px 18px; background: none; clip-path: none; }
+  .cardmodal .sheet { max-width: 390px; padding: 20px 10px 18px; background: none; -webkit-mask-box-image-source: none; mask-border-source: none; -webkit-mask: none; mask: none; }
   .cardmodal h2 { color: var(--paper); text-shadow: 0 2px 6px #000; }
   .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 12px; }
   .pick { padding: 16px 6px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 196px; }
@@ -111,7 +117,7 @@
   .btn:active, .pick:active { transform: none; }
   h1.lift, h2.lift { margin: 0; } h1 > .paper { padding: 16px 30px 18px; } h2 > .paper { padding: 9px 12px; } #title h1 { padding: 0; } .top h2 { padding: 0; }
   #title .sub { padding: 0; } .sub2 { padding: 7px 18px; font-size: 17px; }
-  .notes > :nth-child(1) { transform: rotate(-1.6deg); } .notes > :nth-child(2) { transform: rotate(1.1deg); margin-left: 6px; } .notes > :nth-child(3) { transform: rotate(-.7deg); }
+  .notes > :nth-child(1) { transform: rotate(-1.4deg); } .notes > :nth-child(2) { transform: rotate(1deg) translateY(2px); } .notes > :nth-child(3) { transform: rotate(-.7deg); }
   .note:nth-child(1), .note:nth-child(2), .note:nth-child(3) { transform: none; margin-left: 0; } .lift > .note { justify-content: flex-start; }
   .lift.bump { animation: bump .25s; }
   .cards > :nth-child(1) { transform: rotate(-3deg); } .cards > :nth-child(3) { transform: rotate(3deg); } .cards > .lift:active { transform: translateY(-6px); } .cards > .lift > .pick { flex-direction: column; width: 100%; }

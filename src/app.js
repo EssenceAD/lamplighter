@@ -5,7 +5,7 @@ import { createHarbour } from './harbour.js';
 import * as audio from './audio.js';
 import * as net from './net.js';
 
-export const VERSION = '2.0.1';
+export const VERSION = '2.0.2';
 const Q = new URLSearchParams(location.search), DEBUG = Q.has('debug'), AUTO = Q.has('auto');
 const $ = (s, el = document) => el.querySelector(s), ui = $('#ui'), frame = $('#frame');
 const h = html => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -179,8 +179,8 @@ function updateHud(dt) {
   const key = [game.wave, game.windows, game.shards, game.phase, Math.ceil(game.breakT), game.endless].join();
   if (key !== hudKey) { hudKey = key;   // only touch the paper notes when a number changes
     const set = (id, html) => { const n = $(id + ' .paper'); if (n.innerHTML !== html) { n.innerHTML = html; n.parentElement.classList.remove('bump'); void n.offsetWidth; n.parentElement.classList.add('bump'); } };
-    set('#n-wave', `${moonIc(Math.max(1, game.wave) / LAST_WAVE)}웨이브 <span class="num">${Math.max(1, game.wave)}</span>${game.endless ? '' : ` / <span class="num">${LAST_WAVE}</span>`}`);
-    set('#n-win', `${ic('house')}창문 <span class="num">${game.windows}</span>`); set('#n-shard', `${ic('star')}빛조각 <span class="num">${game.shards}</span>`);
+    set('#n-wave', `${moonIc(Math.max(1, game.wave) / LAST_WAVE)}<span class="lbl">웨이브</span><span class="num">${Math.max(1, game.wave)}</span>${game.endless ? '' : ` / <span class="num">${LAST_WAVE}</span>`}`);
+    set('#n-win', `${ic('house')}<span class="lbl">창문</span><span class="num">${game.windows}</span>`); set('#n-shard', `${ic('star')}<span class="lbl">빛조각</span><span class="num">${game.shards}</span>`);
     const call = $('#call'), want = game.phase === 'break' ? (game.wave === 0 ? '첫 웨이브 부르기' : `다음 웨이브 ${ic('star')}<span class="num">+${Math.round(Math.max(0, game.breakT) * 2.5 * game.m.early)}</span>`) : '';
     if (call.dataset.t !== want) { call.dataset.t = want; call.innerHTML = want ? btn(want, 'call', 'plain') : ''; }
     if (menuSlot >= 0) for (const b of hud.querySelectorAll('.mi')) { const c = b.dataset.m === 'build' ? game.cost(menuSlot, b.dataset.x) : b.dataset.m === 'up' ? game.cost(menuSlot) : 0; b.classList.toggle('poor', c > game.shards); } }

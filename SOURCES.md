@@ -12,7 +12,7 @@
 | `ref/houses.png` | 마을 집 (그중 5채 사용) | Higgsfield · Z Image (Tongyi-MAI) |
 | `ref/tower.png` | 등불 탑 (앱 아이콘에도 사용) | 〃 |
 | `ref/props.png` | 나무, 우물, 울타리 | 〃 |
-| `ref/scenery.png` | 달, 구름, 언덕 띠. 2.0에서는 언덕 띠 3개를 **바다 물결 띠**로 사용(전용 파도 시트는 생성 서비스 장애로 받지 못함). 구름 하나는 안개 그림자의 윤곽으로도 사용 | 〃 |
+| `ref/scenery.png` | 달, 구름, 언덕 띠(마을 뒤 먼 언덕). 구름 하나는 안개 그림자의 윤곽으로도 사용 | 〃 |
 | `ref/path.png` | 꼬불한 길 | 〃 |
 | `ref/monsters3.png` | 걷는 그림자 2종 (더듬이형·작은 뿔형의 머리와 발) | 〃 |
 | `ref/monsters2.png` | 작은 뿔형의 뿔만 사용 | 〃 |
@@ -21,9 +21,11 @@
 | `ref/bosses.png` | 챕터 보스 5종 | 〃 |
 | `ref/tools.png` | 거울, 프리즘, 렌즈, 반딧불 병 (색유리는 2.0 미사용) | 〃 |
 | `ref/sea.png` | 2.0 바다 그림자: 잔챙이, 날치, 방패게, 문어, 거북, 큰 고래 보스 | 〃 |
-| `ref/harbour.png` | 2.0 항구: 절벽, 고깃배, 부두, 종(틀), 봉화, 통, 바위 — 조각이 붙어 나와 `tools/crop.js`로 영역을 잘라 사용 | 〃 |
+| `ref/harbour.png` | 2.0 항구: 고깃배, 부두, 종(틀), 봉화, 통, 바위 — 조각이 붙어 나와 `tools/crop.js`로 영역을 잘라 사용 (절벽 2개는 2.0.2부터 미사용) | 〃 |
+| `ref/waves.png` | 2.0.2 바다: 말린 물마루가 이어진 파도 띠 3종 (`wave_a`·`wave_b`·`wave_c`, 화면에는 a·c 사용) | 〃 |
+| `ref/crag_a.png`, `ref/crag_b.png` | 2.0.2 등대 바위 절벽 2종. 사진풍으로 나와 흑백 임계 처리로 바깥 윤곽만 추출(안쪽 명암·질감은 버림) | 〃 |
 
-- 생성일: 2026-11-13. 프롬프트는 "순수 검정 종이 오림 실루엣 / 흰 배경 / 질감·그림자 없음"을 공통으로 지정.
+- 생성일: 2026-11-13 (파도·바위 절벽은 2026-11-14). 프롬프트는 "순수 검정 종이 오림 실루엣 / 흰 배경 / 질감·그림자 없음"을 공통으로 지정.
 - 스타일 참고(프롬프트에 서술로만 반영, 원작 이미지는 사용하지 않음):
   - 로테 라이니거 「아흐메드 왕자의 모험」(Die Abenteuer des Prinzen Achmed, 1926) 실루엣 애니메이션
   - 와양 쿨릿(Wayang kulit) 그림자극
@@ -44,6 +46,7 @@
 | `assets/paper/Paper001_Color.jpg`, `Paper001_NormalGL.jpg` | [Paper 001](https://ambientcg.com/view?id=Paper001) 1K-JPG | 모든 종이 조각의 결·노멀, 하늘 배경지 |
 | `assets/paper/Paper003_NormalGL.jpg` | [Paper 003](https://ambientcg.com/view?id=Paper003) 1K-JPG | 바닥 종이의 구김 노멀 |
 | `assets/paper/Paper006_*.jpg` | [Paper 006](https://ambientcg.com/view?id=Paper006) 1K-JPG | 예비(미사용) |
+| `assets/paper/torn.png` | [Cardboard Set 001](https://ambientcg.com/view?id=CardboardSet001) 4K-JPG 의 Opacity 맵 | UI 종이(쪽지·단추·카드·메뉴 조각)의 찢긴 가장자리 마스크. 스캔된 조각 2장의 실제 찢긴 변 4개에서 깊이 윤곽을 읽어 정사각 마스크의 네 변으로 옮긴 것(`tools/torn.js`). 색·질감은 쓰지 않고 윤곽만 사용하며, CSS `mask-border`로 9분할해 크기와 무관하게 찢김의 축척을 유지 |
 
 ## 3. 파티클 — Kenney Particle Pack 1.1 (CC0 1.0)
 

@@ -31,7 +31,7 @@ export async function createHarbour(frame, SHAPES) {
   frame.prepend(renderer.domElement);
   try {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x05060f);
-  const camera = new THREE.PerspectiveCamera(40, 9 / 16, 0.5, 80); camera.position.set(0, 15.5, 14.5); camera.lookAt(0, 0, 0.9);
+  const camera = new THREE.PerspectiveCamera(40, 9 / 16, 0.5, 80); camera.position.set(0, 15.5, 14.5); camera.lookAt(0, 0, 0.35);
   const LEAN = -0.26;   // every standing sheet leans back a little, like a pop-up book, so it still reads from this higher view
   const TL = new THREE.TextureLoader();
   const tex = (url, srgb = true, repeat = 1) => new Promise((res, rej) => TL.load(url, t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; res(t); }, undefined, rej));
@@ -77,7 +77,8 @@ export async function createHarbour(frame, SHAPES) {
     g.userData = { holes: O.holes, w: O.w, h: O.h, O, fringe: fr }; return g;
   }
   const M = { house: paperMat(0x2b2f55, 0x3a2f4a), house2: paperMat(0x33294f, 0x44304a), tower: paperMat(0x2a2440, 0x3b2a44), tree: paperMat(0x1c2c44, 0x2e3350), prop: paperMat(0x24284a, 0x3a3048),
-    cliff: paperMat(0x1d2444, 0x4a3a52), sea1: paperMat(0x25508e, 0x8a6a86), sea2: paperMat(0x3672b4, 0xb48a98), sea3: paperMat(0x4f93cf, 0xdca9a4), far1: paperMat(0x2c3f7c, 0xd29a92), far2: paperMat(0x3a5296, 0xefbfb1),
+    cliff: paperMat(0x2c3663, 0x5a4660), cliff2: paperMat(0x3a4678, 0x6e556c), far0: paperMat(0x232b58, 0x5f4a70), far1: paperMat(0x2c376c, 0x8a6585), far2: paperMat(0x36447f, 0xb07f8e),
+    sea: [paperMat(0x3f72b2, 0xe2b0a6), paperMat(0x3462a0, 0xcf9c9e), paperMat(0x2a538c, 0xb98a98), paperMat(0x214477, 0xa07890), paperMat(0x193661, 0x886a88), paperMat(0x12284c, 0x705a7e), paperMat(0x0d1f3d, 0x5e4c70)], seaFloor: paperMat(0x0d1f3d, 0x5e4c70),
     cloud: paperMat(0x26326e, 0x8a6480), ground: paperMat(0x3c4879, 0x9a7f95), path: paperMat(0x8d8a9e, 0xf3d6b4), slot: paperMat(0x6f759c, 0xcbb0a4) };
   M.ground.normalMap = paperCreaseN; M.ground.normalScale.set(1.3, 1.3);
 
@@ -106,33 +107,47 @@ export async function createHarbour(frame, SHAPES) {
   const starMat = new THREE.PointsMaterial({ map: pStar, size: 0.26, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xaab4e0 }); scene.add(new THREE.Points(starGeo, starMat));
   const cloudRim = dawnTint(new THREE.MeshBasicMaterial({ color: 0xffffff }), new THREE.Color(0.10, 0.14, 0.34), new THREE.Color(0.80, 0.52, 0.46));
   const cloudA = stand(cutout('cloud_a', { height: 0.7, mat: M.cloud, core: cloudRim, fr0: 2, fr1: 2, step: 6, cast: false, receive: false }), -2.9, -15.2, { y: 2.9, amp: 0.3 });
-  const wave = (name, z, h, y, mat, w, amp, sp, back) => { const O = SHAPES[name], g = cutout(name, { height: w / (O.w / O.h), squash: h / (w / (O.w / O.h)), mat, step: 9, fr0: 2, fr1: 4, cast: false }); g.position.set(0, y, z); scene.add(g); waves.push({ g, y, amp, sp, ph: waves.length * 1.9, back }); return g; };
-  wave('wave_c', -12.6, 0.9, 0, M.far2, 26, 0.05, 0.5, true); wave('wave_b', -11.2, 0.8, 0, M.far1, 25, 0.05, 0.6, true); wave('wave_a', -9.9, 0.7, 0, M.sea3, 25, 0.05, 0.7, true);
-  stand(cutout('cliff_b', { height: 1.3, mat: M.cliff, step: 7, rough: 1.6, cast: false }), 0.4, -8.4, { amp: 0.25 }).scale.set(1.5, 1, 1);
-  stand(cutout('cliff_a', { height: 1.3, mat: M.cliff, step: 6, rough: 1.5, cast: false }), TOWER.x - 0.05, TOWER.z + 0.15, { amp: 0.15 });
-  const CLIFF_Y = 1.05, tower = stand(cutout('tower', { height: 2.9, mat: M.tower, step: 4, cast: false }), TOWER.x, TOWER.z, { y: CLIFF_Y, amp: 0.3 });
+  const wide = (name, x, z, w, h, mat) => { const S = SHAPES[name], h0 = w * S.h / S.w; return stand(cutout(name, { height: h0, squash: h / h0, mat, step: 8, rough: 1.2, cast: false }), x, z, { amp: 0.1 }); };
+  wide('ridge', 0.5, -11.6, 27, 6.5, M.far2);   // tall enough that no strip of sky shows above it on long phones wide('hill_far', -1.5, -9.7, 25, 2.4, M.far1); wide('hill_low', 1.2, -8.0, 23, 1.4, M.far0);
+  // the lighthouse rock: two cut-paper crags (outlines traced from rock references); the tower rises from behind them
+  stand(cutout('crag_a', { height: 1.55, mat: M.cliff, step: 16, rough: 2.2, solid: true, cast: false }), TOWER.x - 0.2, TOWER.z + 0.14, { y: -0.07, amp: 0.08 });
+  stand(cutout('crag_b', { height: 0.8, mat: M.cliff2, step: 16, rough: 2.2, solid: true, cast: false }), TOWER.x + 0.6, TOWER.z + 0.36, { y: -0.05, amp: 0.08 }).scale.x = -1;
+  const CLIFF_Y = 0.8, tower = stand(cutout('tower', { height: 2.9, mat: M.tower, step: 4, cast: false }), TOWER.x, TOWER.z, { y: CLIFF_Y, amp: 0.3 });
   const chamber = tower.userData.holes.filter(h => h.py < 0.3).sort((a, b) => b.w * b.h - a.w * a.h)[0] ?? { x: 0, y: 2.7 };
   const LANTERN = new THREE.Vector3(TOWER.x + chamber.x, CLIFF_Y + chamber.y, TOWER.z - 0.25);
   function glowPanes(g, test, color, k = 1) { const mat = new THREE.MeshBasicMaterial({ color }); mat.userData.base = mat.color.clone();
     for (const h of g.userData.holes) { if (!test(h)) continue; const p = new THREE.Mesh(new THREE.PlaneGeometry((h.w + 0.03) * k, (h.h + 0.03) * k), mat); p.position.set(h.x, h.y, -0.02); g.add(p); } return mat; }
   const towerGlow = glowPanes(tower, h => h.pw > 24 && h.ph > 24, new THREE.Color(0.95, 0.5, 0.15));
   const AMBER = new THREE.Color(1.15, 0.56, 0.15);
-  const houses = [['house_a', 1.7, -3.5, -5.9, 0.42], ['house_d', 2.5, -1.75, -6.3, 0.2], ['house_c', 1.35, 0.5, -5.7, 0.42], ['house_b', 1.5, 2.2, -6.1, 0.42], ['house_e', 1.3, 3.7, -5.6, 0.42]].map(([n, h, x, z, roof], i) => {
+  const houses = [['house_a', 2.55, -3.5, -5.2, 0.42], ['house_d', 3.25, -1.75, -5.95, 0.2], ['house_c', 2.0, 0.45, -5.15, 0.42], ['house_b', 2.25, 2.15, -5.85, 0.42], ['house_e', 1.95, 3.7, -5.2, 0.42]].map(([n, h, x, z, roof], i) => {
     const g = stand(cutout(n, { height: h, mat: i % 2 ? M.house2 : M.house }), x, z); g.userData.glow = glowPanes(g, q => q.pw > 22 && q.ph > 22 && q.py > roof, AMBER); return g; });
   stand(cutout('tree_a', { height: 2.3, mat: M.tree, step: 6 }), -4.3, -3.9); stand(cutout('tree_c', { height: 1.7, mat: M.tree, step: 6 }), 4.3, -3.6); stand(cutout('bush', { height: 1.2, mat: M.tree, step: 6 }), -4.2, 0.6); stand(cutout('tree_d', { height: 1.6, mat: M.tree, step: 6 }), 4.3, 1.2);
   stand(cutout('barrels', { height: 0.5, mat: M.prop }), 3.7, 2.6); stand(cutout('rock', { height: 1.0, mat: M.cliff, step: 7, rough: 1.6 }), -4.3, 2.9); stand(cutout('well', { height: 0.85, mat: M.prop, step: 4 }), 3.6, -1.6);
-  stand(cutout('pier', { height: 0.55, mat: M.prop, cast: false }), -3.5, 4.55, { amp: 0.3 }); const boat = stand(cutout('boat', { height: 1.15, mat: M.prop, cast: false }), 3.4, 6.6, { amp: 0.3 });
-  // the sea in front: three strips of cut paper rocking against each other
-  { const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 8), M.sea1); floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0.03, 8.15); floor.receiveShadow = true; scene.add(floor); }
-  [[4.25, 0.42, M.sea3, 'wave_a'], [4.85, 0.5, M.sea2, 'wave_b'], [5.5, 0.6, M.sea3, 'wave_c'], [6.2, 0.75, M.sea2, 'wave_a'], [7.0, 0.9, M.sea1, 'wave_b'], [7.9, 1.1, M.sea2, 'wave_c'], [8.9, 1.3, M.sea1, 'wave_b']].forEach(([z, h, mat, n], i) => wave(n, z, h, -0.06, mat, 17 + i, 0.05 + i * 0.012, 1.0 - i * 0.07));
-  // build spots: a small paper stand (base plate and a stake with a tag), not a painted circle
-  const stakeGeo = new THREE.ShapeGeometry(new THREE.Shape([[-0.04, 0], [0.045, 0], [0.05, 0.27], [0.2, 0.3], [0.23, 0.47], [0.02, 0.5], [-0.19, 0.46], [-0.21, 0.29], [-0.05, 0.28]].map(p => new THREE.Vector2(p[0], p[1])))), plateGeo = new THREE.CircleGeometry(0.33, 7);
-  const slotMarks = SLOTS.map((s, i) => { const g = new THREE.Group(), plate = new THREE.Mesh(plateGeo, M.prop), stake = new THREE.Mesh(stakeGeo, M.slot); plate.rotation.x = -Math.PI / 2; plate.rotation.z = i * 0.7; plate.position.y = 0.03; plate.receiveShadow = true; stake.position.z = 0.02; stake.rotation.z = (i % 3 - 1) * 0.05; stake.rotation.x = LEAN; g.add(plate, stake); g.position.set(s.x, 0, s.z); scene.add(g); return g; });
+  stand(cutout('pier', { height: 0.55, mat: M.prop, cast: false }), -3.5, 4.55, { amp: 0.3 }); const boat = stand(cutout('boat', { height: 1.1, mat: M.prop, cast: false }), 2.4, 6.2, { y: 0.75, amp: 0.3 });
+  // the sea in front: six layers of cut-paper waves (curled crests traced from a reference), each its own blue,
+  // the nearest the darkest, each rocking at its own pace. A pale sheet just behind each layer shows as a thin moonlit line along the crests.
+  { const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 8), M.seaFloor); floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0.03, 8.15); floor.receiveShadow = true; scene.add(floor); }
+  const rimMat = dawnTint(new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), new THREE.Color(0.40, 0.54, 0.92), new THREE.Color(1.0, 0.8, 0.62));
+  const seaLayer = (name, z, h, count, sp, amp, dir) => { const S = SHAPES[name], w = h * S.w / S.h, g = new THREE.Group(), mat = M.sea[waves.length];
+    for (let k = 0; k < count; k++) { const s = cutout(name, { height: h, mat, step: 13, rough: 0.7, fr0: 1, fr1: 2, cast: false }), O = s.userData.O, rim = new THREE.Mesh(O.gRim ??= new THREE.ShapeGeometry(O.main, 1), rimMat);
+      rim.position.set(-0.012, 0.026 + h * 0.005, -0.012); s.add(rim); s.position.set((k - (count - 1) / 2) * w * 0.9, 0, -k * 0.004); g.add(s); }
+    g.scale.x = dir; g.position.set(0, -h * 0.05, z); scene.add(g); waves.push({ g, y: -h * 0.05, amp, sp, ph: waves.length * 1.9, drift: 0.34 + 0.05 * waves.length }); };
+  // each layer stands close enough behind the next that the floor never shows through a trough (no flat bands anywhere)
+  seaLayer('wave_c', 4.3, 0.8, 3, 0.62, 0.02, 1); seaLayer('wave_a', 4.7, 1.0, 2, 0.95, 0.025, -1); seaLayer('wave_c', 5.2, 1.25, 2, 0.7, 0.03, 1);
+  seaLayer('wave_a', 5.82, 1.55, 2, 1.1, 0.035, -1); seaLayer('wave_c', 6.6, 1.95, 1, 0.55, 0.04, 1); seaLayer('wave_a', 7.55, 2.45, 1, 0.82, 0.045, -1); seaLayer('wave_c', 8.6, 2.9, 1, 0.66, 0.05, 1);
+  // build spots: a paper base plate with a soft amber circle breathing on it (brighter while something can be afforded)
+  const plateGeo = new THREE.CircleGeometry(0.4, 9), spotGeo = new THREE.PlaneGeometry(1.5, 1.5);
+  const slotMarks = SLOTS.map((s, i) => { const g = new THREE.Group(), plate = new THREE.Mesh(plateGeo, M.slot);
+    const spot = new THREE.Mesh(spotGeo, new THREE.ShaderMaterial({ uniforms: { uI: { value: 0.4 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
+      fragmentShader: `uniform float uI; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float ring = smoothstep(0.36, 0.41, r) * (1.0 - smoothstep(0.46, 0.51, r)); float core = (1.0 - smoothstep(0.0, 0.42, r)) * 0.42; float halo = (1.0 - smoothstep(0.4, 1.0, r)) * 0.22;
+        float a = (ring * 0.9 + core + halo) * uI; gl_FragColor = vec4(vec3(1.0, 0.58, 0.16) * a, a); }` }));
+    plate.rotation.x = -Math.PI / 2; plate.rotation.z = i * 0.7; plate.position.y = 0.03; plate.receiveShadow = true; spot.rotation.x = -Math.PI / 2; spot.position.y = 0.05; spot.renderOrder = 2; g.add(plate, spot); g.position.set(s.x, 0, s.z); scene.add(g); return { g, spot }; });
 
   // ---------- light ----------
   const hemi = new THREE.HemisphereLight(0x3d4c9c, 0x0a0c1c, 1.15); scene.add(hemi);
   const fill = new THREE.DirectionalLight(0x5c70d8, 0.75); fill.position.set(4, 7, 12); scene.add(fill);
-  const beam = new THREE.SpotLight(0xffb866, 0, 46, 0.27, 0.55, 1.1); beam.castShadow = true; beam.position.copy(LANTERN);
+  const beam = new THREE.SpotLight(0xffa54a, 0, 46, 0.27, 0.55, 1.1); beam.castShadow = true; beam.position.copy(LANTERN);
   beam.shadow.mapSize.set(2048, 2048); beam.shadow.bias = -0.0025; beam.shadow.normalBias = 0.03; beam.shadow.radius = 2.5; beam.shadow.autoUpdate = false;
   { const cam = beam.shadow.camera, look = new THREE.Vector3(0, 0, -1.8), pm = new THREE.Matrix4(); cam.fov = 100; cam.aspect = 1; cam.near = 0.25; cam.far = 40; cam.updateProjectionMatrix();
     beam.shadow.updateMatrices = function (light) { cam.position.setFromMatrixPosition(light.matrixWorld); cam.lookAt(look); cam.updateMatrixWorld(); pm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); this._frustum.setFromProjectionMatrix(pm); this.matrix.set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1).multiply(pm); }; }
@@ -146,10 +161,10 @@ export async function createHarbour(frame, SHAPES) {
   const coneMat = new THREE.ShaderMaterial({ uniforms: { uI: { value: 0 }, uTime: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     vertexShader: `varying vec3 vN; varying vec3 vV; varying vec2 vUv; void main(){ vUv = uv; vec4 mv = modelViewMatrix * vec4(position,1.); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `uniform float uI, uTime; varying vec3 vN; varying vec3 vV; varying vec2 vUv; void main(){ float soft = pow(abs(dot(normalize(vN), normalize(vV))), 1.8); float l = 1.0 - vUv.y;
-      float along = mix(0.75, 0.22, smoothstep(0.0, 0.8, l)) * smoothstep(0.0, 0.03, l); float streak = 0.84 + 0.16 * sin(vUv.x * 60.0 + sin(uTime * 0.4 + vUv.x * 9.0) * 2.0); float a = soft * along * streak * uI; gl_FragColor = vec4(vec3(1.0, 0.66, 0.30) * a, a); }` });
+      float along = mix(0.8, 0.3, smoothstep(0.0, 0.6, l)) * smoothstep(0.0, 0.03, l) * (1.0 - 0.8 * smoothstep(0.5, 0.69, l)); float streak = 0.8 + 0.2 * sin(vUv.x * 60.0 + sin(uTime * 0.4 + vUv.x * 9.0) * 2.0); float a = soft * along * streak * uI; gl_FragColor = vec4(vec3(1.0, 0.6, 0.24) * a, a); }` });
   const coneGeo = new THREE.CylinderGeometry(0.04, 1, 1, 48, 1, true); coneGeo.translate(0, -0.5, 0); coneGeo.rotateX(-Math.PI / 2);
   const cone = new THREE.Mesh(coneGeo, coneMat); cone.frustumCulled = false; cone.renderOrder = 5; scene.add(cone);
-  const dustGeo = new THREE.BufferGeometry(); { const r = rng(3), p = [], s = []; for (let i = 0; i < 300; i++) { p.push(r() * 6.283, Math.sqrt(r()), r()); s.push(0.5 + r(), r(), 0.4 + r() * 1.2); } dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); dustGeo.setAttribute('aSeed', new THREE.Float32BufferAttribute(s, 3)); }
+  const dustGeo = new THREE.BufferGeometry(); { const r = rng(3), p = [], s = []; for (let i = 0; i < 460; i++) { p.push(r() * 6.283, Math.sqrt(r()), r()); s.push(0.5 + r(), r(), 0.4 + r() * 1.2); } dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); dustGeo.setAttribute('aSeed', new THREE.Float32BufferAttribute(s, 3)); }
   const dustMat = new THREE.ShaderMaterial({ uniforms: { map: { value: pCircle }, uTime: { value: 0 }, uI: { value: 0 }, uO: { value: new THREE.Vector3() }, uDir: { value: new THREE.Vector3(0, 0, 1) }, uRight: { value: new THREE.Vector3(1, 0, 0) }, uUp: { value: new THREE.Vector3(0, 1, 0) }, uLen: { value: 1 }, uRad: { value: 1 }, uPx: { value: 1 } },
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: `uniform float uTime, uLen, uRad, uPx, uI; uniform vec3 uO, uDir, uRight, uUp; attribute vec3 aSeed; varying float vA; void main(){ float l = fract(position.z + uTime * 0.010 * aSeed.z); float ang = position.x + uTime * 0.10 * (aSeed.y - 0.5); float rf = position.y;
@@ -232,7 +247,7 @@ export async function createHarbour(frame, SHAPES) {
   const toolObjs = [], lightObjs = [], feedLines = [], zaps = [];
   const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(1.6, 1.25, 0.7), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
   const zapMat = new THREE.LineBasicMaterial({ color: new THREE.Color(1.6, 2.4, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
-  const DEPTH_COL = [[1, 0.8, 0.5], [1.0, 0.8, 0.5], [1.1, 0.95, 0.7], [1.2, 1.1, 0.95], [1.3, 1.3, 1.3], [1.4, 1.4, 1.5]];
+  const DEPTH_COL = [[1, 0.56, 0.2], [1.0, 0.56, 0.2], [1.05, 0.64, 0.26], [1.1, 0.72, 0.33], [1.15, 0.8, 0.42], [1.2, 0.88, 0.52]];   // passed-on light stays amber; deeper chains only grow a little paler
   const pipGeo = new THREE.CircleGeometry(0.055, 8), pipMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.8, 0.3) }), pipMax = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.3, 0.5) });
   function syncTools(game) {
     const bornAt = new Map(toolObjs.map(o => [o.slot + o.type + o.lvl, o.born]));
@@ -245,7 +260,7 @@ export async function createHarbour(frame, SHAPES) {
     for (const L of game.lights) { const t = game.tools[L.slot], m = new THREE.Mesh(L.kind === 'seg' || L.kind === 'link' ? segGeo : discGeo, lightMat()), u = m.material.uniforms, c = L.kind === 'fire' ? [1.3, 0.5, 0.12] : DEPTH_COL[L.depth || 1];
       u.uCol.value.setRGB(c[0], c[1], c[2]); u.uMode.value = L.kind === 'fire' ? 2 : L.kind === 'disc' ? 1 : 0;
       if (L.kind === 'seg' || L.kind === 'link') { m.position.set(L.x0, 0.04, L.z0); m.rotation.y = Math.atan2(-(L.x1 - L.x0), -(L.z1 - L.z0)); m.scale.set((L.hw || 0.2) * 2.6, 1, Math.hypot(L.x1 - L.x0, L.z1 - L.z0)); } else { m.position.set(L.x, 0.045, L.z); m.scale.set(L.r * 1.15, 1, L.r * 1.15); }
-      m.userData = { L, base: L.kind === 'link' ? 0.35 : L.kind === 'fire' ? 0.8 : L.kind === 'disc' ? 0.95 : 0.5 + 0.1 * (L.depth || 1) }; m.renderOrder = 3; scene.add(m); lightObjs.push(m); }
+      m.userData = { L, base: L.kind === 'link' ? 0.28 : L.kind === 'fire' ? 0.8 : L.kind === 'disc' ? 0.62 : 0.4 + 0.07 * (L.depth || 1) }; m.renderOrder = 3; scene.add(m); lightObjs.push(m); }
   }
   const ringMat = new THREE.ShaderMaterial({ uniforms: { uR: { value: 0 }, uI: { value: 0 }, uW: { value: 0.012 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexShader: VS,
     fragmentShader: `uniform float uR, uI, uW; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float e = 0.0012; float a = smoothstep(uR - uW - e, uR - uW, r) * (1.0 - smoothstep(uR, uR + e, r)) * uI; gl_FragColor = vec4(vec3(1.0, 0.86, 0.6) * a, a); }` });
@@ -274,6 +289,7 @@ export async function createHarbour(frame, SHAPES) {
   setShadowMode('dawn'); renderer.compile(scene, camera); setShadowMode('night'); renderer.compile(scene, camera);
 
   const st = { dawn: 0, dawnTarget: 0, gather: 0, flashT: -1, lost: 0, fade: 0, freeze: 0, lastStop: -9, slow: 0, fast: 0, fps: 60, fpsAcc: 0, fpsN: 0, sel: -1, alive: 0 };
+  const LOOKDEV = { POOL: 32, BEAM_MAX: 820, CONE: 1.15 }; let { POOL, BEAM_MAX, CONE } = LOOKDEV;
   const beamAim = new THREE.Vector3(0, 0, -1), ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ndc = new THREE.Vector2(), ID = new THREE.Quaternion().setFromEuler(new THREE.Euler(LEAN, 0, 0));
   let frameNo = 0, shakeUntil = -1;
   function reset(game) { ghosts.length = 0; pops.length = 0; for (let i = 0; i < scrapData.length; i++) scrapData[i] = null; Object.assign(st, { dawn: 0, dawnTarget: 0, flashT: -1, lost: 0, gather: 0, sel: -1 }); syncTools(game ?? { tools: [], lights: [], feeds: [] }); for (const z of zaps) { scene.remove(z.l); z.l.geometry.dispose(); } zaps.length = 0; bake = 2; }
@@ -323,12 +339,13 @@ export async function createHarbour(frame, SHAPES) {
 
     // --- the lighthouse beam
     const lampOn = (1 - sstep(0.15, 0.8, st.dawn)) * (1 - st.lost * 0.92), radius = game ? game.lamp.radius : 1.05;
-    if (game && !game.done) beamAim.set(game.aim.x, 0, game.aim.z); else beamAim.lerp(_v.set(Math.sin(ti * 0.42 + 0.6) * 2.6, 0, 0.2 + Math.sin(ti * 0.27 + 2) * 3.2), 1 - Math.exp(-dt * 0.9));
+    if (game && !game.done) beamAim.set(game.aim.x, 0, game.aim.z); else beamAim.lerp(_v.set(Math.sin(ti * 0.42 + 0.6) * 3.0, 0, -1.4 + Math.sin(ti * 0.27 + 2) * 2.8), 1 - Math.exp(-dt * 0.9));
     const bI = (1 - 0.55 * gather) * (tf >= 0 ? sstep(0.3, 1.2, tf) * 0.4 + 0.6 : 1) * lampOn * (0.92 + 0.08 * Math.sin(ti * 1.7)) * (1 + 0.25 * hitPulse), flick = 0.94 + 0.06 * Math.sin(ti * 9.1) * Math.sin(ti * 5.3), glow = (1 + flashSpike * 2.2 + after * 0.9) * lampOn * flick;
-    const BEAM = 300, GLOW = 34; beam.intensity = Math.max(BEAM * bI, GLOW * glow, 0.001); SPOT_FLOOR.value = clamp(GLOW * glow / beam.intensity);
-    _t.copy(beamAim).sub(LANTERN); const dist = _t.length(), len = dist * 1.45; beam.angle = clamp(Math.atan(radius * 1.25 / dist) * (1 - 0.3 * gather), 0.05, 0.6); beam.target.position.copy(beamAim);
+    _t.copy(beamAim).sub(LANTERN); const dist = _t.length(), len = dist * 1.45;
+    // the pool on the ground keeps one brightness wherever the beam points: amber, never burnt out to white
+    const BEAM = Math.min(BEAM_MAX, POOL * Math.pow(dist, 1.1) * clamp(dist / LANTERN.y, 1, 2.4)), GLOW = 19; beam.intensity = Math.max(BEAM * bI, GLOW * glow, 0.001); SPOT_FLOOR.value = clamp(GLOW * glow / beam.intensity); beam.angle = clamp(Math.atan(radius * 1.25 / dist) * (1 - 0.3 * gather), 0.05, 0.6); beam.target.position.copy(beamAim);
     _t.normalize(); _r.crossVectors(_t, _u.set(0, 1, 0)).normalize(); _u.crossVectors(_r, _t).normalize(); const rad = Math.tan(beam.angle) * len; cone.position.copy(LANTERN); cone.lookAt(beamAim); cone.scale.set(rad, rad, len);
-    coneMat.uniforms.uI.value = 0.85 * bI; coneMat.uniforms.uTime.value = ti; const du = dustMat.uniforms; du.uO.value.copy(LANTERN); du.uDir.value.copy(_t); du.uRight.value.copy(_r); du.uUp.value.copy(_u); du.uLen.value = len; du.uRad.value = rad; du.uI.value = 2.4 * bI; du.uTime.value = ti;
+    coneMat.uniforms.uI.value = CONE * bI; coneMat.uniforms.uTime.value = ti; const du = dustMat.uniforms; du.uO.value.copy(LANTERN); du.uDir.value.copy(_t); du.uRight.value.copy(_r); du.uUp.value.copy(_u); du.uLen.value = len; du.uRad.value = rad; du.uI.value = 2.4 * bI; du.uTime.value = ti;
     const cu = castMat.uniforms; cu.uDir.value.copy(_t); cu.uCone.value = Math.cos(beam.angle); cu.uPen.value = Math.cos(beam.angle * (1 - beam.penumbra)); cu.uA.value = clamp(bI + 0.4) * (1 - D);
     const hs = 0.55 * Math.sqrt(lampOn) + flashSpike * 2.6 + after * 0.25; halo.scale.setScalar(hs); halo.material.opacity = clamp(0.5 * lampOn + flashSpike); flare.scale.setScalar(hs * 1.5 + flashSpike * 5); flare.material.opacity = clamp(0.12 * lampOn + flashSpike * 0.9);
     towerGlow.color.copy(towerGlow.userData.base).multiplyScalar(clamp(lampOn * flick + flashSpike, 0, 2));
@@ -340,7 +357,8 @@ export async function createHarbour(frame, SHAPES) {
     for (const m of lightObjs) { m.material.uniforms.uI.value = m.userData.base * (1 - D) * (0.9 + 0.1 * Math.sin(ti * 2.3 + m.userData.L.slot)); m.material.uniforms.uTime.value = ti; }
     if (game && frameNo % 4 === 0) for (const L of game.lights) if (L.kind === 'fire') { const a = Math.random() * 6.283, r = Math.random() * L.r; ember(L.x + Math.cos(a) * r, 0.1, L.z + Math.sin(a) * r, (Math.random() - 0.5) * 0.4, 0.9, (Math.random() - 0.5) * 0.4, 0, 0.8, 0.2, 2.2, [2.6, 1.0, 0.2]); }
     if (game && frameNo % 6 === 0) game.tools.forEach((t, i) => { if (t && t.type === 'jar') { const s = SLOTS[i]; ember(s.x + (Math.random() - 0.5) * 0.5, 0.5 + Math.random() * 0.4, s.z + 0.1, (Math.random() - 0.5) * 0.5, 0.2, (Math.random() - 0.5) * 0.5, 0, 1.3, 0.14, 0.1, [1.2, 1.9, 0.5]); } });
-    slotMarks.forEach((d, i) => { d.visible = !game || !game.tools[i]; });
+    { const can = game && !game.done && game.shards >= Math.min(...Object.keys(BUILDS).map(t => game.cost(-1, t)));
+      slotMarks.forEach((d, i) => { d.g.visible = !game || !game.tools[i]; d.spot.material.uniforms.uI.value = (can ? 1.0 : 0.42) * (0.78 + 0.22 * Math.sin(ti * 2.6 + i * 0.8)) * (1 - 0.8 * D); }); }
     // --- windows: the village goes dark house by house as shadows get through
     const frac = game ? game.windows / game.windowsMax : 1;
     houses.forEach((h, i) => { const on = clamp(frac * houses.length - (houses.length - 1 - i)), w = on * (1 - sstep(0.3, 0.9, st.dawn)) * (0.95 + 0.05 * Math.sin(ti * 6 + i * 3)) * (1 - st.lost * 0.9); h.userData.glow.color.copy(h.userData.glow.userData.base).multiplyScalar(w); });
@@ -348,8 +366,8 @@ export async function createHarbour(frame, SHAPES) {
     ringMat.uniforms.uR.value = Math.max(0, tf) * WAVE_V / (RING / 2); ringMat.uniforms.uI.value = tf >= 0 ? 0.95 * (1 - sstep(0.9, 1.3, tf)) : 0; ringMat.uniforms.uW.value = 0.009 + 0.004 * clamp(tf);
     const shaking = clock < shakeUntil;
     for (const f of flats) { const d = Math.hypot(f.x - TOWER.x, f.z - TOWER.z), tw = tf - d / WAVE_V; let a = Math.sin(ti * 0.9 + f.seed) * 0.005; if (tf >= 0 && tw > 0 && tw < 3.5) a += f.amp * (0.24 / (1 + d * 0.06)) * Math.exp(-tw * 1.9) * Math.sin(tw * 15); f.g.rotation.x = LEAN + a; f.g.rotation.z = a * 0.35 * Math.sin(f.seed * 3); }
-    for (const w of waves) { w.g.position.x = Math.sin(ti * w.sp + w.ph) * (w.back ? 0.35 : 0.55); w.g.position.y = w.y + Math.sin(ti * w.sp * 1.7 + w.ph * 2) * w.amp; w.g.rotation.z = Math.sin(ti * w.sp * 0.8 + w.ph) * 0.012; w.g.rotation.x = LEAN + Math.sin(ti * w.sp + w.ph * 3) * 0.05; }
-    boat.position.y = Math.sin(ti * 1.1) * 0.05; boat.rotation.z += Math.sin(ti * 0.9) * 0.02; cloudA.position.x = -2.9 + Math.sin(ti * 0.05) * 0.5;
+    for (const w of waves) { w.g.position.x = Math.sin(ti * w.sp + w.ph) * w.drift; w.g.position.y = w.y + Math.sin(ti * w.sp * 1.7 + w.ph * 2) * w.amp; w.g.rotation.z = Math.sin(ti * w.sp * 0.8 + w.ph) * 0.01; w.g.rotation.x = LEAN + Math.sin(ti * w.sp + w.ph * 3) * 0.04; }
+    boat.position.y = 0.75 + Math.sin(ti * 0.55 * 1.7 + 7.6) * 0.07; boat.rotation.z += Math.sin(ti * 0.9) * 0.02; cloudA.position.x = -2.9 + Math.sin(ti * 0.05) * 0.5;
     // --- dawn after the last wave
     for (const m of dawnMats) m.color.lerpColors(m.userData.night, m.userData.dawn, D); skyMat.uniforms.uDawn.value = D;
     hemi.color.setRGB(lerp(0.045, 1.0, D), lerp(0.07, 0.62, D), lerp(0.33, 0.52, D)); hemi.groundColor.setRGB(lerp(0.003, 0.2, D), lerp(0.004, 0.11, D), lerp(0.012, 0.16, D)); hemi.intensity = lerp(1.15, 0.8, D); fill.intensity = lerp(0.75, 0.25, D);
@@ -368,9 +386,9 @@ export async function createHarbour(frame, SHAPES) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.readPixels(0, 0, w, hh, gl.RGBA, gl.UNSIGNED_BYTE, st.buf); let sum = 0, n = 0; for (let i = 0; i < st.buf.length; i += 4 * 37) { sum += 0.2126 * st.buf[i] + 0.7152 * st.buf[i + 1] + 0.0722 * st.buf[i + 2]; n++; } st.luma = sum / n / 255; renderer.resetState(); }
     dt = real ?? dt;
     if (!document.hidden && dt > 0) { st.fpsAcc += dt; st.fpsN++; if (st.fpsAcc > 0.5) { st.fps = st.fpsN / st.fpsAcc; st.fpsAcc = 0; st.fpsN = 0; }
-      if (dt > 1 / 45) { st.slow += dt; st.fast = 0; } else { st.fast += dt; if (st.fast > 1) st.slow = 0; } if (st.slow > 1.2) { st.slow = 0; wantScale = Math.max(0.5, scale - 0.15); } }
+      if (dt > 1 / 45) { st.slow += dt; st.fast = 0; } else { st.fast += dt; if (st.fast > 1) st.slow = 0; } if (st.slow > 1.2 && !st.hold) { st.slow = 0; wantScale = Math.max(0.5, scale - 0.15); } }
   }
-  return { reset, onEvent, frame: frameUpdate, pickGround, slotAt, toScreen, resize, st, setGather: k => { st.gather = k; }, select: i => { st.sel = i; }, fadeIn: () => {}, setScale: k => { wantScale = k; }, canvas: renderer.domElement, _dbg: { composer, bloom, grade, renderer, scene, beam, sun, dust, embers, scraps, cone, kinds },
+  return { reset, onEvent, frame: frameUpdate, pickGround, slotAt, toScreen, resize, st, setGather: k => { st.gather = k; }, select: i => { st.sel = i; }, fadeIn: () => {}, setScale: k => { wantScale = k; }, canvas: renderer.domElement, _dbg: { composer, bloom, grade, renderer, scene, camera, beam, sun, dust, embers, scraps, cone, kinds, hemi, fill, M, tune: o => { ({ POOL, BEAM_MAX, CONE } = { POOL, BEAM_MAX, CONE, ...o }); } },
     info: () => ({ tris: renderer.info.render.triangles || st.tris, calls: renderer.info.render.calls || st.calls, pixelRatio: scale, fps: st.fps, alive: st.alive }) };
   } catch (err) { renderer.dispose(); renderer.domElement.remove(); throw err; }
 }

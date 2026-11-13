@@ -11,6 +11,12 @@
         ],
         "createdAt": "2026-11-13T12:17:04.578Z",
         "reason": "Claude: glows are the game's subject (lit windows, moon, lantern flash button), domain-appropriate; not user confirmed"
+      },
+      {
+        "rule": "overused-font",
+        "value": "fraunces",
+        "createdAt": "2026-11-13T14:46:16.690Z",
+        "reason": "user confirmed: the 2.0.1 brief specifies Fraunces for numerals and Hahmlet for Korean"
       }
     ]
   }
