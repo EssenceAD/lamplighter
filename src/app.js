@@ -31,18 +31,19 @@ const stage = await createHarbour(frame, SHAPES);
 $('#load').remove();
 
 // ---------- state ----------
-let game = null, bot = null, playing = false, paused = false, speed = 1, hold = null, flashHold = -1, menuSlot = -1, tipT = 0, endT = -1, submitted = false;
+let game = null, bot = null, playing = false, paused = false, speed = 1, hold = null, flashHold = -1, menuSlot = -1, tipT = 0, endT = -1, submitted = false, starsPaid = false;
 const TIPS = { 1: '둥근 자리를 눌러 거울을 세워요. 거울은 등대 빛(가는 선)이 닿아야 켜져요.', 2: '날치는 뛰어오른 동안 빛이 닿지 않아요. 종과 번개는 닿아요.', 3: '방패게는 정면 빛을 막아요. 거울 빛을 옆이나 뒤에서 맞혀요.', 4: '문어는 사라지면 셋으로 갈라져요.',
   5: '안개는 주변 빛을 약하게 해요. 종소리로 걷어내요.', 6: '이제 거울만으로는 부족해요. 빛을 이어 프리즘과 렌즈를 켜 보세요.', 7: '거북은 렌즈로 모은 빛이 필요해요.', 15: '큰 고래 그림자가 와요!' };
 
 function startRun(opt = {}) {
   game = new Game({ seed: opt.seed ?? ((Date.now() & 0xffff) + 1), perks: save.perks }); bot = opt.bot ? new PlanBot(game, PLANS[opt.bot], ['link', 'lenshot', 'prism4', 'lamp25', 'shard20', 'chain1', 'burn', 'window', 'gift']) : null;
-  stage.reset(game); stage.fadeIn(); playing = true; paused = false; speed = 1; endT = -1; submitted = false; menuSlot = -1; save.runs++; persist(); audio.setMood('night'); showHud(); showTip(TIPS[1], 14);
+  stage.reset(game); stage.fadeIn(); playing = true; paused = false; speed = 1; endT = -1; submitted = false; starsPaid = false; menuSlot = -1; save.runs++; persist(); audio.setMood('night'); showHud(); showTip(TIPS[1], 14);
 }
 function reached() { return game ? (game.phase === 'won' || game.phase === 'cards' || game.phase === 'break' ? game.wave : Math.max(0, game.wave - 1)) : 0; }
 function bank() { // record the run once: stars, best wave, ranking
   if (!game || submitted) return null; submitted = true;
-  const cleared = reached(), stars = cleared >= LAST_WAVE ? Math.max(1, game.stars) : 0, gain = Math.max(0, stars - (save.bestStars || 0)) + (cleared >= LAST_WAVE ? 1 : 0);
+  const cleared = reached(), stars = cleared >= LAST_WAVE ? Math.max(1, game.stars) : 0, gain = starsPaid ? 0 : Math.max(0, stars - (save.bestStars || 0)) + (cleared >= LAST_WAVE ? 1 : 0);
+  if (cleared >= LAST_WAVE) starsPaid = true;
   save.stars += gain; save.bestStars = Math.max(save.bestStars || 0, stars); save.best = Math.max(save.best, cleared); persist();
   const res = { cleared, stars, gain, score: cleared * 100 + Math.max(0, game.windows) };
   if (save.nick && cleared > 0 && !AUTO) net.submitScore(save.pid, save.nick, res.score).then(r => { const el = $('#rankline'); if (el) el.textContent = r ? `오늘 ${r}등` : '순위에 올렸어요'; }).catch(() => { const el = $('#rankline'); if (el) el.textContent = '순위를 올리지 못했어요.'; });
@@ -95,7 +96,7 @@ function showHud() {
   const el = h(`<div id="hud"><div class="bar"><div class="stat" id="s-wave"></div><div class="stat" id="s-win"></div><div class="stat" id="s-shard"></div><span style="flex:1"></span><button class="round" data-a="note" aria-label="배경음">♪</button><button class="round" data-a="pause" aria-label="멈춤">Ⅱ</button></div>
     <div id="tip" class="hide"></div><div id="menu" class="hide"></div>
     <div class="bottom"><button class="btn ghost" id="call"></button><span style="flex:1"></span><button class="round" id="spd">1×</button><button id="flash"><span>섬광</span></button></div>${DEBUG ? '<div id="dbg"></div>' : ''}</div>`);
-  el.addEventListener('click', e => { const t = e.target.closest('button'); if (!t || !game) return; audio.unlock(); const d = t.dataset;
+  el.addEventListener('click', e => { const t = e.target.closest('button'); if (!t || !game) return; t.blur(); audio.unlock(); const d = t.dataset;
     if (d.a === 'note') { save.set.music = !save.set.music; persist(); audio.configure(save.set); } else if (d.a === 'pause') showPause();
     else if (t.id === 'call') { if (game.callWave()) audio.sfx('tap'); } else if (t.id === 'spd') { speed = speed === 1 ? 2 : 1; t.textContent = speed + '×'; t.classList.toggle('on', speed === 2); }
     else if (d.m) menuAct(d.m, d.x); });
@@ -126,12 +127,14 @@ function closeMenu() { const m = $('#menu'); if (m) m.classList.add('hide'); men
 function menuAct(kind, x) {
   const s = menuSlot; if (s < 0 || !game) return; let ok = false;
   if (kind === 'build') ok = game.build(s, x, s === 0 ? 0 : s === 1 ? 4 : 2); else if (kind === 'up') ok = game.upgrade(s, x || undefined); else if (kind === 'sell') ok = game.sell(s); else if (kind === 'rot') { game.rotate(s, game.tools[s].dir + 1); ok = true; }
-  audio.sfx(ok ? 'rustle' : 'tap'); if (!ok) return; if (game.dirty) game.relink(); if (kind === 'sell') closeMenu(); else openMenu(s);
+  audio.sfx(ok ? 'rustle' : 'tap'); if (!ok) return; if (game.dirty) game.relink();
+  for (const e of game.events) stage.onEvent(e, game); game.events.length = 0;                       // show the change at once, even while paused between frames
+  if (kind === 'sell') closeMenu(); else openMenu(s);
 }
 function showCards() {
   const c = game.offer; if (!c) return; closeMenu();
   modal(`<h2>${game.wave}웨이브를 넘겼어요</h2><p>강화 하나를 골라요</p><div class="cards">${c.map((x, i) => `<button class="pick" data-a="${i}"><b>${x.name}</b><span>${x.desc}</span></button>`).join('')}</div>${game.rerolls > 0 ? `<div class="row"><button class="btn ghost" data-a="re">다시 뽑기 (${game.rerolls})</button></div>` : ''}`,
-    (a, el) => { if (a === 're') { game.reroll(); el.remove(); showCards(); return; } if (game.pickCard(+a)) { audio.sfx('sparkle'); el.remove(); if (TIPS[game.wave + 1]) showTip(TIPS[game.wave + 1], 9); } }).classList.add('cardmodal');
+    (a, el) => { if (a === 're') { game.reroll(); el.remove(); showCards(); return; } if (game.pickCard(+a)) { audio.sfx('sparkle'); el.remove(); showTip(TIPS[game.wave + 1] || `${game.wave}웨이브 완료 · 다음 웨이브를 준비해요`, 9); } }).classList.add('cardmodal');
 }
 function showPause() {
   if (!playing || paused) return; paused = true;
@@ -139,7 +142,7 @@ function showPause() {
     (a, el) => { if (a === 'set') { showSettings(); return; } el.remove(); paused = false; if (a === 'quit') { bank(); showTitle(); } });
 }
 function showEnd() {
-  const won = game.phase === 'won', r = bank() ?? { cleared: reached(), stars: 0, gain: 0, score: 0 }; closeMenu();
+  const won = game.phase === 'won', r = bank() ?? { cleared: reached(), stars: 0, gain: 0, score: 0 }; closeMenu(); for (const m of document.querySelectorAll('.modal')) m.remove();
   const body = won ? `<h2>동이 텄어요</h2><div class="stars">${[1, 2, 3].map(i => i <= r.stars ? '<b>★</b>' : '★').join('')}</div><p>15웨이브를 지켰어요 · 남은 창문 ${game.windows}${r.gain ? ` · 별 +${r.gain}` : ''}</p>`
     : `<h2>창문이 모두 꺼졌어요</h2><p>${r.cleared}웨이브까지 버텼어요${game.endless ? ' · 폭풍의 밤' : ''}${r.gain ? ` · 별 +${r.gain}` : ''}</p>`;
   modal(`${body}<p id="rankline">${save.nick ? (r.cleared ? '순위 올리는 중…' : '') : '이름을 정하면 순위에 올라가요'}</p><div class="row"><button class="btn ghost" data-a="home">처음으로</button>${won ? '<button class="btn" data-a="storm">폭풍의 밤 이어하기</button>' : '<button class="btn" data-a="again">다시</button>'}</div>`,
@@ -162,7 +165,7 @@ function updateHud(dt) {
 // ---------- input on the stage ----------
 frame.addEventListener('pointerdown', e => {
   if (!playing || paused || !game || e.target.closest('button, .modal')) return; audio.unlock();
-  const slot = stage.slotAt(e.clientX, e.clientY);
+  const slot = stage.slotAt(e.clientX, e.clientY, game);
   if (menuSlot >= 0 && slot !== menuSlot) { closeMenu(); if (slot < 0) return; }
   if (slot >= 0) hold = { slot, x: e.clientX, y: e.clientY, moved: false };
   else { const p = stage.pickGround(e.clientX, e.clientY); if (p) { game.setAim(p.x, p.z); hold = { aim: true, x: e.clientX, y: e.clientY, moved: false, t: performance.now() }; } }
@@ -175,7 +178,7 @@ frame.addEventListener('pointermove', e => {
 });
 const endHold = () => { if (!hold || !game) { hold = null; return; }
   if (hold.aim) { game.releaseAim(); if (!hold.moved && performance.now() - hold.t > 550) game.flash(); stage.setGather(0); }                 // press and hold, let go: flash
-  else if (!hold.moved) { if (menuSlot === hold.slot) closeMenu(); else { openMenu(hold.slot); audio.sfx('tap'); } }
+  else if (!hold.moved && !paused && game.phase !== 'cards' && !$('.modal')) { if (menuSlot === hold.slot) closeMenu(); else { openMenu(hold.slot); audio.sfx('tap'); } }
   hold = null; };
 frame.addEventListener('pointerup', endHold); frame.addEventListener('pointercancel', endHold);
 addEventListener('keydown', e => { if (e.key === ' ' && playing && game && !paused) game.flash(); if (e.key === 'Escape') showPause(); });
@@ -189,7 +192,8 @@ function advance(dt) {
   for (const e of game.events) { stage.onEvent(e, game);
     if (e.type === 'kill') { if (performance.now() - popT > 45) { popT = performance.now(); audio.sfx('pop'); } } else if (e.type === 'flash') audio.sfx('flash'); else if (e.type === 'leak') audio.sfx('snuff');
     else if (e.type === 'bell') audio.sfx('bell'); else if (e.type === 'zap') audio.sfx('zap'); else if (e.type === 'won') audio.sfx('win'); else if (e.type === 'lost') audio.sfx('lose');
-    else if (e.type === 'wave' && TIPS[e.n] && e.n > 1) showTip(TIPS[e.n], 8); }
+    else if (e.type === 'wave' && TIPS[e.n] && e.n > 1) showTip(TIPS[e.n], 8);
+    else if (e.type === 'bonus') { audio.sfx('sparkle'); showTip(`미리 불러서 빛조각 +${e.n}`, 3); } else if (e.type === 'cleared') { audio.sfx('sparkle'); if (bot) showTip(`${e.n}웨이브 완료 · 빛조각 +${e.pay}`, 3); } }
   game.events.length = 0;
   if (game.phase === 'cards' && !$('.cardmodal') && !bot) showCards();
   if (game.done && endT < 0 && playing) endT = game.phase === 'won' ? 3.4 : 2.2;
@@ -203,7 +207,7 @@ function tick(now) {
     if (endT > 0) { endT -= dt; if (endT <= 0) { endT = -1; playing = false; audio.setMood(game.phase === 'won' ? 'menu' : 'hush'); showEnd(); } }
     updateHud(dt);
   }
-  stage.frame(paused ? 0 : dt * (playing ? speed : 1), playing || (game && game.done) ? game : null);
+  stage.frame(paused ? 0 : dt * (playing ? speed : 1), playing || (game && game.done) ? game : null, dt);
   requestAnimationFrame(tick);
 }
 
@@ -225,6 +229,7 @@ window.__ll = {
   // run game time forward without waiting on the display (draws a frame now and then)
   run(seconds, step = 1 / 30) { let n = 0; for (let t = 0; t < seconds && game && !game.done; t += step) { stage.st.freeze = 0; advance(step); if (++n % 15 === 0) stage.frame(step, game); } stage.frame(step, game); updateHud(0); return game ? { phase: game.phase, wave: game.wave, windows: game.windows, shards: game.shards, alive: game.enemies.length } : null; },
   frame: (dt = 1 / 30) => stage.frame(dt, game),
+  finish() { if (game && game.done && playing) { playing = false; showEnd(); } },                       // show the end sheet now (the loop does this after a short pause)
   // time real frames with the current scene: average ms per rendered frame
   bench(n = 60) { const t0 = performance.now(); for (let i = 0; i < n; i++) { stage.st.freeze = 0; advance(1 / 60); stage.frame(1 / 60, game); } const ms = (performance.now() - t0) / n; return { msPerFrame: +ms.toFixed(2), fps: Math.round(1000 / ms), alive: game ? game.enemies.length : 0, ...stage.info() }; },
 };

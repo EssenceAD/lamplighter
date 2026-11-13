@@ -19,7 +19,7 @@ const LOOK = {
   octo: ['e_octo', 0.85, [[0.4, 0.3], [0.62, 0.3]], 0.075], baby: ['e_octo', 0.42, [[0.4, 0.3], [0.62, 0.3]], 0.085], fog: ['cloud_b', 0.8, [[0.4, 0.55], [0.6, 0.55]], 0.1],
   turtle: ['e_turtle', 0.95, [[0.86, 0.3]], 0.07], boss: ['e_boss', 2.6, [[0.2, 0.36], [0.42, 0.36]], 0.035],
 };
-const CAP = { fry: 520, fish: 90, crab: 60, octo: 40, baby: 110, fog: 24, turtle: 30, boss: 3 };
+const CAP = { fry: 1500, fish: 240, crab: 140, octo: 100, baby: 320, fog: 48, turtle: 70, boss: 4 };
 const TOOL_SHAPE = { mirror: ['t_mirror', 1.05], prism: ['t_prism', 0.85], lens: ['t_lens', 1.15], bell: ['t_bell', 1.2], beacon: ['t_beacon', 1.25], jar: ['t_jar', 0.7] };
 
 export async function createHarbour(frame, SHAPES) {
@@ -227,12 +227,13 @@ export async function createHarbour(frame, SHAPES) {
   const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(1.6, 1.25, 0.7), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
   const zapMat = new THREE.LineBasicMaterial({ color: new THREE.Color(1.6, 2.4, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
   const DEPTH_COL = [[1, 0.8, 0.5], [1.0, 0.8, 0.5], [1.1, 0.95, 0.7], [1.2, 1.1, 0.95], [1.3, 1.3, 1.3], [1.4, 1.4, 1.5]];
+  const pipGeo = new THREE.CircleGeometry(0.055, 8), pipMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.8, 0.3) }), pipMax = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.3, 0.5) });
   function syncTools(game) {
     const bornAt = new Map(toolObjs.map(o => [o.slot + o.type + o.lvl, o.born]));
     for (const o of toolObjs) { scene.remove(o.g); o.glow?.dispose(); } toolObjs.length = 0; for (const o of lightObjs) { scene.remove(o); o.material.dispose(); } lightObjs.length = 0; for (const l of feedLines) { scene.remove(l); l.geometry.dispose(); } feedLines.length = 0;
     game.tools.forEach((t, i) => { if (!t) return; const [shape, h] = TOOL_SHAPE[t.type], s = SLOTS[i], g = cutout(shape, { height: h * (1 + 0.09 * (t.lvl - 1)), mat: M.prop, step: 6, rough: 1.2, cast: false, receive: false });
       const lit = !BUILDS[t.type].optic || t.depth > 0, glow = null;
-      for (let k = 0; k < t.lvl; k++) { const pip = new THREE.Mesh(new THREE.CircleGeometry(0.055, 8), new THREE.MeshBasicMaterial({ color: t.lvl === 4 ? new THREE.Color(1.6, 1.3, 0.5) : new THREE.Color(1.2, 0.8, 0.3) })); pip.position.set((k - (t.lvl - 1) / 2) * 0.15, g.userData.h + 0.14, 0.02); g.add(pip); }
+      for (let k = 0; k < t.lvl; k++) { const pip = new THREE.Mesh(pipGeo, t.lvl === 4 ? pipMax : pipMat); pip.position.set((k - (t.lvl - 1) / 2) * 0.15, g.userData.h + 0.14, 0.02); g.add(pip); }
       g.position.set(s.x, 0, s.z + 0.05); scene.add(g); toolObjs.push({ g, glow, slot: i, type: t.type, lvl: t.lvl, lit, born: bornAt.get(i + t.type + t.lvl) ?? clock }); });
     for (const i of game.feeds) { const s = SLOTS[i], g = new THREE.BufferGeometry().setFromPoints([LANTERN, new THREE.Vector3(s.x, TOOL_SHAPE[game.tools[i].type][1] * 0.75, s.z)]), l = new THREE.Line(g, lineMat); l.renderOrder = 6; scene.add(l); feedLines.push(l); }
     for (const L of game.lights) { const t = game.tools[L.slot], m = new THREE.Mesh(L.kind === 'seg' || L.kind === 'link' ? segGeo : discGeo, lightMat()), u = m.material.uniforms, c = L.kind === 'fire' ? [1.3, 0.5, 0.12] : DEPTH_COL[L.depth || 1];
@@ -264,7 +265,7 @@ export async function createHarbour(frame, SHAPES) {
   const st = { dawn: 0, dawnTarget: 0, gather: 0, flashT: -1, lost: 0, fade: 0, freeze: 0, lastStop: -9, slow: 0, fast: 0, fps: 60, fpsAcc: 0, fpsN: 0, sel: -1, alive: 0 };
   const beamAim = new THREE.Vector3(0, 0, -1), ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ndc = new THREE.Vector2(), ID = new THREE.Quaternion();
   let frameNo = 0, shakeUntil = -1;
-  function reset(game) { ghosts.length = 0; pops.length = 0; for (let i = 0; i < scrapData.length; i++) scrapData[i] = null; Object.assign(st, { dawn: 0, dawnTarget: 0, flashT: -1, lost: 0, gather: 0, sel: -1 }); syncTools(game ?? { tools: [], lights: [], feeds: [] }); for (const z of zaps) scene.remove(z.l); zaps.length = 0; bake = 2; }
+  function reset(game) { ghosts.length = 0; pops.length = 0; for (let i = 0; i < scrapData.length; i++) scrapData[i] = null; Object.assign(st, { dawn: 0, dawnTarget: 0, flashT: -1, lost: 0, gather: 0, sel: -1 }); syncTools(game ?? { tools: [], lights: [], feeds: [] }); for (const z of zaps) { scene.remove(z.l); z.l.geometry.dispose(); } zaps.length = 0; bake = 2; }
   function onEvent(e, game) {
     if (e.type === 'kill') { ghosts.push({ kind: e.enemy, x: e.x, z: e.z, t: 0, shard: e.shard }); if (ENEMY_BIG[e.enemy] && clock - st.lastStop > 0.7) { st.lastStop = clock; st.freeze = 0.05; } }
     else if (e.type === 'flash') { st.flashT = 0; shakeUntil = clock + 4; for (let i = 0; i < 60; i++) { const r = Math.random, a = r() * 6.283, el = (r() - 0.3) * 1.4, sp = 3 + r() * 7; ember(LANTERN.x, LANTERN.y, LANTERN.z, Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp * 0.6, Math.abs(Math.sin(a)) * Math.cos(el) * sp + 0.5, r() * 0.1, 0.8 + r() * 1.4, 0.14 + r() * 0.2, 0.5 + r(), [2.0, 1.2 + r() * 0.5, 0.35]); } }
@@ -275,10 +276,12 @@ export async function createHarbour(frame, SHAPES) {
   }
   const ENEMY_BIG = { turtle: 1, boss: 1 };
   function pickGround(cx, cy) { const r = renderer.domElement.getBoundingClientRect(); ndc.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, _v) ? { x: _v.x, z: _v.z } : null; }
-  function slotAt(cx, cy) { const p = pickGround(cx, cy); if (!p) return -1; let best = -1, bd = 0.62; SLOTS.forEach((s, i) => { const d = Math.hypot(s.x - p.x, s.z + 0.3 - p.z); if (d < bd) { bd = d; best = i; } }); return best; }
+  function slotAt(cx, cy, game) { const r = renderer.domElement.getBoundingClientRect(), px = cx - r.left, py = cy - r.top; let best = -1, bd = 1e9;
+    SLOTS.forEach((s, i) => { const b = toScreen(s.x, 0, s.z), t = toScreen(s.x, 1.25, s.z), hh = b.y - t.y, built = game ? !!game.tools[i] : toolObjs.some(o => o.slot === i);
+      if (Math.abs(px - b.x) > hh * 0.5 || py > b.y + hh * 0.35 || py < (built ? t.y - 8 : b.y - hh * 0.4)) return; const d = Math.hypot(px - b.x, py - (b.y - (built ? hh * 0.4 : 0))); if (d < bd) { bd = d; best = i; } }); return best; }
   function toScreen(x, y, z) { _v.set(x, y, z).project(camera); return { x: (_v.x * 0.5 + 0.5) * W, y: (-_v.y * 0.5 + 0.5) * H }; }
 
-  function frameUpdate(dt, game) {
+  function frameUpdate(dt, game, real) {
     frameNo++; const ti = performance.now() * 0.001; if (st.freeze > 0) { st.freeze -= dt; dt = 0; } clock += dt;
     st.dawn += clamp(st.dawnTarget - st.dawn, -dt / 4, dt / 3.5); const D = sstep(0, 1, st.dawn);
     if (st.lost > 0) st.lost = Math.min(1, st.lost + dt / 2.5); if (st.flashT >= 0) { st.flashT += dt; if (st.flashT > 4) st.flashT = -1; }
@@ -346,6 +349,7 @@ export async function createHarbour(frame, SHAPES) {
     bloom.strength = Math.min(BLOOM_MAX, 0.24 + flashSpike * 0.3); eMat.uniforms.uTime.value = clock; if (eDirty) { for (const k of ['position', 'aVel', 'aData', 'aCol']) eGeo.attributes[k].needsUpdate = true; eDirty = false; } updateScraps();
     st.calls = renderer.info.render.calls; st.tris = renderer.info.render.triangles; renderer.info.reset();
     composer.render();
+    dt = real ?? dt;
     if (!document.hidden && dt > 0) { st.fpsAcc += dt; st.fpsN++; if (st.fpsAcc > 0.5) { st.fps = st.fpsN / st.fpsAcc; st.fpsAcc = 0; st.fpsN = 0; }
       if (dt > 1 / 45) { st.slow += dt; st.fast = 0; } else { st.fast += dt; if (st.fast > 1) st.slow = 0; } if (st.slow > 1.2) { st.slow = 0; if (pixelRatio > 0.75) { pixelRatio = Math.max(0.75, pixelRatio - 0.2); resize(); } } }
   }

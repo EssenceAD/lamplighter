@@ -54,7 +54,7 @@ export const ENEMIES = {
   baby: { name: '새끼 문어', hp: 6, spd: 0.7, size: 0.4, shard: 1 },
   fog: { name: '안개', hp: 26, spd: 0.36, size: 0.9, shard: 9, fog: 1.7 },                           // dims light around it; a bell clears it
   turtle: { name: '거북', hp: 120, spd: 0.26, size: 0.95, shard: 20, bar: true },                    // hard shell; needs gathered (lens) light
-  boss: { name: '큰 고래 그림자', hp: 1500, spd: 0.15, size: 2.3, shard: 200, bar: true, windows: 10 },
+  boss: { name: '큰 고래 그림자', hp: 1100, spd: 0.13, size: 2.3, shard: 200, bar: true, windows: 999 },
 };
 // 15 hand-written waves: [type, count, lanes, gap seconds, start second]
 export const WAVES = [
@@ -167,7 +167,7 @@ export class Game {
 
   spawn(type, lane, s = 0) {
     const B = ENEMIES[type], e = { id: this.nextId++, type, lane, s, x: 0, z: 0, hx: 0, hz: -1, hp: B.hp * waveHp(Math.max(1, this.wave)), spd: B.spd * (type === 'fish' ? this.m.fishSpd : type === 'fry' ? this.m.frySpd : 1), size: B.size,
-      lit: 0, blocked: 0, stun: 0, slow: 1, burn: 0, burnDps: 0, air: 0, ph: this.rnd() * 6.28, off: (this.rnd() - 0.5) * 0.5, flashed: true, fogOff: 0, dim: 1 };
+      lit: 0, blocked: 0, stun: 0, slow: 1, burn: 0, burnDps: 0, air: 0, ph: this.rnd() * 6.28, off: (this.rnd() - 0.5) * 0.5, flashed: true, fogOff: 0, dim: 1, immune: 0 };
     e.max = e.hp; LANES[lane].at(s, e); e.x += -e.hz * e.off; e.z += e.hx * e.off; this.enemies.push(e); if (type === 'boss') this.bossId = e.id; return e;
   }
 
@@ -206,12 +206,13 @@ export class Game {
   mod(e, L) { // L: {focused, dx, dz, pierce, fire, zap, flash}
     if (e.air > 0 && !L.zap && !L.flash) return 0;                                                   // a leaping flying fish is out of reach
     let k = 1;
-    if (e.type === 'turtle') k = L.focused ? 1 : L.fire || L.zap ? 0.5 : L.flash ? 0.4 : this.m.turtle;
+    if (e.type === 'turtle') k = L.focused ? 1 : L.flash ? 0.4 : L.fire || L.zap ? Math.max(0.2, this.m.turtle) : this.m.turtle;   // the shell shrugs off everything but gathered light
     else if (e.type === 'crab' || e.type === 'boss') { if (!L.fire && !L.zap && !L.flash && !L.pierce && (L.dx * e.hx + L.dz * e.hz) < -0.3) { k = e.type === 'boss' ? 0.5 : this.m.crabFront; e.blocked = 0.25; } }
     else if (e.type === 'fog') k = L.fire || L.zap ? 1 : 0.35;
     if (!L.fire && !L.zap) k *= e.dim;                                                                // standing in fog
     return k;
   }
+  stun(e, sec) { if (e.type === 'boss' || e.immune > 0) return; e.stun = Math.max(e.stun, sec); e.immune = sec + 3.2; }
   hurt(e, dmg, by) {
     if (dmg <= 0 || e.dead) return; e.hp -= dmg; e.lit = 0.18;
     if (e.hp > 0) return;
@@ -239,7 +240,7 @@ export class Game {
     // bells and firefly jars act on their own clock
     T.forEach((t, i) => { if (!t) return; const B = BUILDS[t.type], s = SLOTS[i];
       if (t.type === 'bell') { t.cd -= dt; if (t.cd <= 0) { const rad = B.rad * (t.spec === 'big' ? 1.5 : 1) * (1 + 0.07 * (t.lvl - 1)); let any = false;
-          for (const e of this.enemies) if (Math.hypot(e.x - s.x, e.z - s.z) < rad + e.size * 0.3) { any = true; if (e.type !== 'boss') e.stun = Math.max(e.stun, (B.stun + this.m.bellStun) * (t.spec === 'big' ? 1.5 : 1) * (1 + 0.1 * (t.lvl - 1))); e.air = 0; if (e.type === 'fog') { e.fogOff = 7; this.hurt(e, 9 * LVL_MUL[t.lvl], 'bell'); } else this.hurt(e, B.dmg * LVL_MUL[t.lvl], 'bell'); }
+          for (const e of this.enemies) if (Math.hypot(e.x - s.x, e.z - s.z) < rad + e.size * 0.3) { any = true; this.stun(e, (B.stun + this.m.bellStun) * (t.spec === 'big' ? 1.5 : 1) * (1 + 0.1 * (t.lvl - 1))); e.air = 0; if (e.type === 'fog') { e.fogOff = 7; this.hurt(e, 9 * LVL_MUL[t.lvl], 'bell'); } else this.hurt(e, B.dmg * LVL_MUL[t.lvl] * (e.type === 'turtle' ? this.m.turtle : 1), 'bell'); }
           if (any) { t.cd = B.every * (t.spec === 'quick' ? 0.5 : 1); this.ev('bell', { slot: i, r: rad }); } else t.cd = 0.25; } }
       else if (t.type === 'jar') { t.cd -= dt; if (t.cd <= 0) { let cur = null, cd = B.rad; for (const e of this.enemies) { const d = Math.hypot(e.x - s.x, e.z - s.z); if (!e.dead && d < cd) { cd = d; cur = e; } }
           if (!cur) { t.cd = 0.15; return; } t.cd = B.every; const pts = [{ x: s.x, z: s.z }], seen = new Set(); let dmg = B.dmg * LVL_MUL[t.lvl] * (t.spec === 'over' ? 2 : 1); const n = B.chain + this.m.chain + (t.spec === 'long' ? 3 : 0);
@@ -249,7 +250,7 @@ export class Game {
     // fog dims the light on everything near it
     const fogs = this.enemies.filter(e => e.type === 'fog' && e.fogOff <= 0);
     for (const e of this.enemies) {
-      e.lit = Math.max(0, e.lit - dt); e.blocked = Math.max(0, e.blocked - dt); e.slow = 1; e.fogOff = Math.max(0, e.fogOff - dt); e.dim = 1;
+      e.lit = Math.max(0, e.lit - dt); e.blocked = Math.max(0, e.blocked - dt); e.slow = 1; e.fogOff = Math.max(0, e.fogOff - dt); e.dim = 1; e.immune = Math.max(0, e.immune - dt);
       for (const f of fogs) if (Math.hypot(e.x - f.x, e.z - f.z) < ENEMIES.fog.fog) { e.dim = this.m.fogDim; break; }
       const hop = ENEMIES[e.type].hop; if (hop && e.stun <= 0) { const c = (this.t + e.ph) % (hop[0] + hop[1]); e.air = c > hop[0] ? 1 - (c - hop[0]) / hop[1] : 0; } else e.air = 0;
       const pad = e.size * 0.3;
@@ -260,7 +261,7 @@ export class Game {
         else if (Math.hypot(e.x - L.x, e.z - L.z) < L.r + pad) { if (L.kind === 'fire') { if (e.air > 0) continue; e.burn = L.linger; e.burnDps = Math.max(e.burnDps, L.dps * this.mod(e, { fire: true })); } else this.hurt(e, L.dps * this.mod(e, L) * dt, 'lens'); } }
       if (e.dead) continue;
       if (e.burn > 0) { e.burn -= dt; this.hurt(e, e.burnDps * dt, 'beacon'); if (e.burn <= 0) e.burnDps = 0; if (e.dead) continue; }
-      if (ringR >= 0 && !e.flashed && Math.hypot(e.x - TOWER.x, e.z - TOWER.z) <= ringR) { e.flashed = true; if (e.type !== 'boss') e.stun = Math.max(e.stun, 1.6); e.air = 0; this.hurt(e, P.flashDmg * this.mod(e, { flash: true }), 'flash'); if (e.dead) continue; }
+      if (ringR >= 0 && !e.flashed && Math.hypot(e.x - TOWER.x, e.z - TOWER.z) <= ringR) { e.flashed = true; this.stun(e, 1.6); e.air = 0; this.hurt(e, P.flashDmg * this.mod(e, { flash: true }), 'flash'); if (e.dead) continue; }
       if (e.stun > 0) e.stun -= dt; else e.s += e.spd * e.slow * dt;
       const L = LANES[e.lane]; L.at(e.s, e); e.x += -e.hz * e.off; e.z += e.hx * e.off;
       if (e.type === 'boss') { e.summonT = (e.summonT || 0) + dt; if (e.summonT > 3.2) { e.summonT = 0; for (const ln of [0, 2]) this.spawn('fry', ln, Math.min(LANES[ln].total * 0.5, e.s)); } }
@@ -287,6 +288,7 @@ export const PLANS = {
   // the light chain: two mirrors feed a prism, the prism feeds two lenses and a mirror, with a bell, a beacon and a jar around it
   combo: [['b', 0, 'mirror', 0], ['b', 1, 'mirror', 3], ['b', 2, 'prism', 2], ['b', 3, 'lens', 4], ['b', 4, 'lens', 0], ['b', 5, 'lens', 0], ['b', 8, 'bell', 0], ['u', 2], ['b', 6, 'beacon', 4], ['u', 3], ['u', 4], ['b', 7, 'jar', 0], ['u', 0], ['u', 2], ['u', 5], ['u', 3], ['u', 4], ['u', 8], ['u', 1], ['u', 7], ['u', 6], ['u', 2, 'five'], ['u', 3, 'sun'], ['u', 4, 'sun'], ['u', 5], ['u', 8, 'quick'], ['u', 7], ['u', 0], ['u', 5, 'sun'], ['u', 7, 'long'], ['u', 6], ['u', 6, 'hell'], ['u', 0, 'pierce'], ['u', 1], ['u', 1, 'pierce']],
 };
+PLANS.bells = [['b', 3, 'bell', 0], ['b', 2, 'jar', 0], ['b', 4, 'bell', 0], ['b', 5, 'jar', 0], ['b', 8, 'bell', 0], ['b', 6, 'jar', 0], ['b', 7, 'jar', 0], ['u', 3], ['u', 2], ['b', 0, 'jar', 0], ['b', 1, 'jar', 0], ['u', 4], ['u', 5], ['u', 3], ['u', 2], ['u', 8], ['u', 6], ['u', 7], ['u', 4], ['u', 5], ['u', 3, 'quick'], ['u', 4, 'quick'], ['u', 2, 'long'], ['u', 5, 'long'], ['u', 8], ['u', 8, 'quick'], ['u', 6], ['u', 6, 'long'], ['u', 7], ['u', 7, 'over'], ['u', 0], ['u', 0], ['u', 0, 'long'], ['u', 1], ['u', 1], ['u', 1, 'over']];
 export class PlanBot {
   constructor(game, plan, cards = []) { this.g = game; this.plan = plan.slice(); this.cards = cards; this.i = 0; }
   step() {
