@@ -1,8 +1,8 @@
 // 등불지기 — service worker: offline play and the "new version" strip.
 // Bump VERSION on every release; the page shows the strip when a new worker is waiting.
-const VERSION = '3.1.0';
+const VERSION = '4.0.0';
 const CACHE = 'lamplighter-' + VERSION;
-const CORE = ['./', './index.html', './manifest.webmanifest', './src/app.js', './src/game.js', './src/harbour.js', './src/audio.js', './src/net.js', './assets/shapes.json', './assets/paper/torn.png', './assets/icon-192.png', './assets/icon-512.png',
+const CORE = ['./', './index.html', './manifest.webmanifest', './src/app.js', './src/game.js', './src/board.js', './src/audio.js', './src/net.js', './assets/shapes.json', './assets/paper/torn.png', './assets/icon-192.png', './assets/icon-512.png',
   './assets/paper/Paper001_Color.jpg', './assets/paper/Paper001_NormalGL.jpg', './assets/paper/Paper003_NormalGL.jpg',
   './assets/particles/circle_05.png', './assets/particles/spark_05.png', './assets/particles/flare_01.png', './assets/particles/light_01.png', './assets/particles/star_07.png'];
 const T = 'https://cdn.jsdelivr.net/npm/three@0.170.0/', A = T + 'examples/jsm/';

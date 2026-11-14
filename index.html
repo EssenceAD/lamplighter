@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>등불지기</title>
 <meta name="theme-color" content="#05060f">
-<meta name="description" content="등대 하나로 항구 마을의 밤을 지키는 종이 그림자극 디펜스">
+<meta name="description" content="종이로 접은 섬마을의 밤을 지키는 디펜스">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./assets/icon-192.png">
 <link rel="apple-touch-icon" href="./assets/icon-192.png">
@@ -139,6 +139,20 @@
   .mi.sel > .paper { background-color: #f6b455; } #call .btn { white-space: nowrap; }
   @container (max-width: 400px) { #hud .bottom { gap: 5px; left: 6px; right: 6px; } .sk { width: 56px; } .sk > .paper { width: 56px; height: 56px; } .sk em { letter-spacing: -.06em; } #call .btn { padding: 10px 9px; } #hud .bottom .tab { width: 44px; } }
   body.shot #ui { display: none; }
+  /* 4.0: wave flags at the sea roads, the card of a tapped shadow, difficulty strips, bestiary */
+  #flags { position: absolute; inset: 0; pointer-events: none; }
+  .flag { position: absolute; transform: translate(-50%, -100%); pointer-events: auto; }
+  .flag > .paper { padding: 6px 10px 7px; gap: 3px; background-color: #f6b455; font-size: 15px; font-weight: 800; animation: sway 1.4s ease-in-out infinite; }
+  .flag svg.ic { width: 20px; height: 20px; } .flag svg.foe { width: 24px; height: 24px; }
+  svg.foe { fill: var(--ink); flex: none; width: 46px; height: 46px; }
+  #card { position: absolute; left: 8px; right: 8px; top: calc(max(11px, env(safe-area-inset-top)) + 106px); display: flex; justify-content: center; pointer-events: none; }
+  #card .lift { max-width: 100%; } .lift > .cardp { padding: 9px 14px 10px; gap: 10px; text-align: left; justify-content: flex-start; }
+  .cardp .t b { display: block; font-size: 17px; } .cardp .t > span { display: block; font-size: 15px; color: #54452f; } .t > .ln { display: block; font-style: italic; color: #6a3b10 !important; }
+  button.lift.block { width: 100%; margin-bottom: 11px; } button.lift.block > .strip { margin-bottom: 0; }
+  .st3 { display: flex; gap: 3px; color: #b9a888; } .st3 svg.ic { width: 26px; height: 26px; } .st3 svg.ic.on { color: #e0891a; }
+  .mi.full > .paper { background-color: #cbbd9c; } .mi.full small { color: #54452f; }
+  #sk-hero > .paper::before { content: ""; position: absolute; left: 7px; right: 7px; bottom: 2px; height: 3px; background: linear-gradient(90deg, #d9801c calc(var(--xp, 0) * 100%), #3a2a2a 0); z-index: 1; }
+  #dbg { bottom: auto; top: calc(max(11px, env(safe-area-inset-top)) + 58px); max-width: 60%; }
 </style>
 <script type="importmap">
 { "imports": {

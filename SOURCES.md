@@ -94,3 +94,8 @@ https://kenney.nl/assets/particle-pack · Kenney Vleugels (kenney.nl)
 |---|---|
 | Supabase (프로젝트 `clockfall`) | 2.0에서는 버틴 웨이브 순위(오늘·이번 주)로 같은 테이블을 재사용. 점수 = 넘긴 웨이브 × 100 + 남은 창문. 테이블 `ll_scores`, 함수 `ll_submit` / `ll_daily_top` / `ll_weekly_top` / `ll_today` (마이그레이션 `lamplighter_leaderboards`). 닉네임과 기기별 임의 ID, 점수만 저장합니다. |
 | GitHub Pages | 배포 |
+
+## 4.0 (2단계)
+
+- 판 화면(`src/board.js`)은 종이 스캔(`assets/paper/Paper001_Color.jpg`, `Paper003_NormalGL.jpg`, ambientCG CC0)과 빛 번짐(`assets/particles/light_01.png`, Kenney CC0)만 씁니다. 집·탑·유닛·바다는 모두 코드로 접은 도형입니다.
+- 윤곽을 따서 만든 `assets/shapes.json`의 실루엣은 이제 인터페이스 아이콘(탑·적·등대지기)에만 씁니다.
