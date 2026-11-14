@@ -18,10 +18,10 @@ const C = { navy: 0x1d2742, navy2: 0x243050, navy3: 0x2a3757, field: 0x26384a, k
 const Z0 = -21.5, Z1 = 11.4, STEP = [0.8, -7.2, -12.2];                       // island from back to shore; the terraces rise at these lines
 const hAt = z => (z > STEP[0] ? 0 : z > STEP[1] ? 0.5 : z > STEP[2] ? 1.0 : 1.5);
 const halfW = z => { const t = clamp((z - Z0) / (Z1 - Z0)); return 8.5 * Math.pow(Math.sin(Math.PI * clamp(t * 0.93 + 0.035)), 0.4) * (1 + 0.045 * Math.sin(z * 0.85) + 0.03 * Math.sin(z * 2.3 + 1)); };
-const ROAD = [[0, 1.5], [-2.5, -0.5], [-6, -2], [-6.3, -4.5], [-3, -5.5], [1, -4.5], [5, -5.5], [6.3, -8], [3.5, -9.8], [-1, -9.2], [-4.5, -10.8], [-3, -13.2]];
-const ROUTES = [[[-5.5, 11.2], [-5.5, 8], [-3, 6.5], [-6, 4.5], [-3.5, 2.5], ...ROAD], [[5.6, 11.2], [6, 7.6], [3.5, 6], [5.5, 3.5], [3, 2], ...ROAD]];
+const ROAD = [[0, 1.5], [-1.2, 0.4], [-3.6, -0.6], [-6.2, -1.2], [-7.0, -2.9], [-5.6, -4.3], [-3.0, -4.6], [-1.2, -5.8], [0.8, -5.9], [2.2, -4.4], [4.2, -4.3], [5.4, -5.6], [6.6, -7.0], [6.4, -8.9], [4.4, -9.9], [2.0, -9.2], [0.2, -8.4], [-2.0, -9.0], [-3.4, -10.6], [-5.4, -11.2], [-5.6, -12.6], [-3.6, -13.2]];
+const ROUTES = [[[-5.5, 11.2], [-5.6, 8.6], [-4.2, 7.2], [-1.6, 6.9], [-0.9, 5.6], [-3.4, 4.9], [-6.4, 4.2], [-6.6, 2.6], [-4.2, 1.9], [-1.6, 2.2], ...ROAD], [[5.6, 11.2], [6.2, 9], [5.2, 7.2], [3.2, 6.4], [3.6, 5.0], [5.6, 4.2], [6.2, 2.9], [4.4, 1.9], [2.2, 2.0], ...ROAD]];
 const CREEK = [[8.9, -7.4], [5.2, -5.6], [3.2, -2.8], [1.8, 1.75], [2.9, 4.0], [4.55, 4.75], [6.9, 6.4], [9, 8.8]];
-const SPOTS = [[-3.5, 8.6], [4.2, 8.4], [-4.1, 4.5], [7.0, 2.3], [0, 3.6], [-3.3, -2.9], [-4.7, -3.6], [0.3, -2.8], [3.2, -7.4], [0.9, -11.3], [-2.8, -7.5]];
+const SPOTS = [[-3.5, 8.9], [4.2, 8.6], [-4.6, 3.3], [7.5, 1.6], [0.6, 3.7], [-2.4, -2.6], [-5.2, -2.7], [0.9, -3.4], [3.2, -7.4], [0.9, -11.3], [-2.8, -7.4]];
 const BUILT = { 4: 'archer', 6: 'barracks', 7: 'lens', 8: 'beacon' };
 const POSTS = [[-4.4, 9.3], [-4.2, 6.9], [-4.6, 3.3], [4.8, 8.6], [4.6, 5.3], [1.2, 2.6], [-1.4, 0.9], [-4.6, -0.6], [-7.2, -3.4], [-1.2, -6.2], [2.9, -3.9], [6.9, -6.5], [5.0, -10.3], [1.2, -8.4], [-2.6, -11.0], [-4.3, -12.6]];
 const spline = (pts, n = 8) => { const o = []; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
@@ -32,7 +32,7 @@ export async function createStage(frame, SHAPES) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
   frame.prepend(renderer.domElement);
-  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x05070f);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x18274a);
   const camera = new THREE.OrthographicCamera(-HALF_W, HALF_W, 16, -16, 1, 200);
   const TL = new THREE.TextureLoader(), tex = (url, srgb, rep) => new Promise((res, rej) => TL.load(url, t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t); }, undefined, rej));
   const [paper, paperN, pLight] = await Promise.all([tex('./assets/paper/Paper001_Color.jpg', true, 2.2), tex('./assets/paper/Paper003_NormalGL.jpg', false, 0.5), tex('./assets/particles/light_01.png', true, 1)]);
@@ -79,11 +79,13 @@ export async function createStage(frame, SHAPES) {
   const creek = spline(CREEK, 10); ribbon(creek, 0.5, 0.02, paperFlat(C.creamD), 3); ribbon(creek, 0.4, 0.03, paperFlat(C.water), 4);
   const lanes = ROUTES.map(r => spline(r, 9)), roadMat = paperFlat(C.road), underMat = paperFlat(C.kraftD);
   for (const L of lanes) ribbon(L, 0.7, 0.045, underMat, 21); for (const L of lanes) ribbon(L, 0.62, 0.055, roadMat, 22);
+  const nearRoad = (x, z) => { let d = 9; for (const L of lanes) for (let i = 0; i < L.length; i += 2) d = Math.min(d, Math.hypot(L[i][0] - x, L[i][1] - z)); return d; };
+  const POSTS2 = []; lanes.forEach((L, li) => { for (let i = 7 + li * 5; i < (li ? 80 : L.length - 3); i += 13) { const a = L[i - 1], b = L[i + 1], d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, s = (Math.round(i / 13) % 2 ? 1 : -1) * 1.0; POSTS2.push([L[i][0] - (b[1] - a[1]) / d * s, L[i][1] + (b[0] - a[0]) / d * s]); } });
   const along = (L, i) => { const a = L[Math.max(0, i - 1)], b = L[Math.min(L.length - 1, i + 1)]; return Math.atan2(b[0] - a[0], b[1] - a[1]); };
   { const done = new Set(); for (const L of lanes) for (let i = 1; i < L.length; i++) for (const b of STEP) if ((L[i - 1][1] - b) * (L[i][1] - b) < 0) { const key = Math.round(L[i][0] * 10) + ':' + b; if (done.has(key)) continue; done.add(key); const g = group(L[i][0], b, along(L, i), 0), up = hAt(b - 0.3), lo = hAt(b + 0.3);   // stairs: folded steps across the road
         for (let s = 0; s < 4; s++) piece(G.box(1.36, (up - lo) / 4 * (s + 1), 0.3), C.cream, 0, lo + (up - lo) / 8 * (s + 1) + 0.03, 0.75 - s * 0.3, { to: g, rim: 0.5, crumple: 0.015 }); } }
   const bridge = (x, z, ry) => { const g = group(x, z, ry, lift(z)); piece(G.box(1.5, 0.12, 1.9), C.kraft, 0, 0.2, 0, { to: g }); for (const s of [-1, 1]) { piece(G.box(0.07, 0.07, 1.9), C.wood, s * 0.72, 0.56, 0, { to: g, fold: false }); for (const q of [-0.85, 0, 0.85]) piece(G.box(0.09, 0.42, 0.09), C.wood, s * 0.72, 0.4, q, { to: g, fold: false }); } ao(x, z, 2.4, 2.4, lift(z)); };
-  bridge(5.1, -5.55, 1.2); bridge(4.6, 4.75, 0.75);
+  bridge(5.15, -5.3, 0.75); bridge(4.6, 4.6, 1.95);
   for (const [dx, dz] of [[-0.45, -0.3], [0, 0.05], [0.42, -0.1], [-0.15, 0.4], [0.3, 0.45]]) piece(G.cyl(0.2, 0.24, 0.1, 6), C.stone, 1.8 + dx, 0.09, 1.75 + dz, { r: [0, r0() * 3, 0] });   // the ford: stepping stones
   const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.1, 0.62, 0.2), transparent: true, opacity: 0.85 }), rings = [];
   SPOTS.forEach(([x, z], i) => { const y = hAt(z); piece(G.cyl(0.62, 0.7, 0.09, 8), C.creamD, x, y + 0.05, z, { r: [0, i * 0.5, 0] }); ao(x, z, 2.2); if (BUILT[i]) return; const r = new THREE.Mesh(new THREE.RingGeometry(0.36, 0.45, 8), ringMat); r.rotation.x = -Math.PI / 2; r.position.set(x, y + 0.105, z); scene.add(r); rings.push(r); });
@@ -96,14 +98,14 @@ export async function createStage(frame, SHAPES) {
     piece(new THREE.PlaneGeometry(w * 0.18, h * 0.42), pm(C.wood), w * (lit === 1 ? 0.26 : 0), h * 0.22, d / 2 + 0.011, { to: g, cast: false }); piece(G.box(w * 0.3, 0.06, 0.16), C.stone, w * (lit === 1 ? 0.26 : 0), 0.03, d / 2 + 0.09, { to: g });
     if (r0() < 0.6) { piece(G.cyl(0.06, 0.05, 0.09, 5), C.verm, -w * 0.38, 0.05, d / 2 + 0.12, { to: g }); piece(G.ico(0.07), C.leaf2, -w * 0.38, 0.14, d / 2 + 0.12, { to: g, fold: false }); }   // a flower pot by the door
     ao(x, z, w * 2.1, d * 2.3); return g; };
-  const tree = (x, z, s = 1) => { const g = group(x, z, r0() * 3); piece(G.cyl(0.05 * s, 0.07 * s, 0.34 * s, 5), C.wood, 0, 0.17 * s, 0, { to: g, fold: false }); for (let i = 0; i < 3; i++) piece(G.cone((0.46 - i * 0.11) * s, 0.56 * s, 6), i % 2 ? C.leaf2 : C.leaf, 0, (0.56 + i * 0.33) * s, 0, { to: g, r: [0, i * 0.5, 0], crumple: 0.04 }); ao(x, z, 1.3 * s); };
+  const tree = (x, z, s = 1) => { if (nearRoad(x, z) < 1.0) return; const g = group(x, z, r0() * 3); piece(G.cyl(0.05 * s, 0.07 * s, 0.34 * s, 5), C.wood, 0, 0.17 * s, 0, { to: g, fold: false }); for (let i = 0; i < 3; i++) piece(G.cone((0.46 - i * 0.11) * s, 0.56 * s, 6), i % 2 ? C.leaf2 : C.leaf, 0, (0.56 + i * 0.33) * s, 0, { to: g, r: [0, i * 0.5, 0], crumple: 0.04 }); ao(x, z, 1.3 * s); };
   const bush = (x, z, s = 0.25) => piece(G.ico(s), C.leaf, x, hAt(z) + s * 0.5, z, { s: [1.2, 0.7, 1], r: [r0(), r0() * 3, 0], crumple: 0.04 });
   const rock = (x, z, s) => piece(G.ico(s), C.slate, x, hAt(z) + s * 0.4, z, { s: [1.1, 0.65, 0.9], r: [r0(), r0() * 3, r0()], crumple: 0.05 });
   const tuft = (x, z) => { for (let i = 0; i < 3; i++) piece(G.cone(0.05, 0.2, 3), C.leaf2, x + (r0() - 0.5) * 0.2, hAt(z) + 0.1, z + (r0() - 0.5) * 0.2, { fold: false, cast: false, r: [(r0() - 0.5) * 0.5, r0() * 3, (r0() - 0.5) * 0.5] }); };
-  const wall = (x0, z0, x1, z1) => { const n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.3); for (let i = 0; i <= n; i++) { const t = i / n; piece(G.box(0.26, 0.16 + r0() * 0.07, 0.2), C.stone, x0 + (x1 - x0) * t, hAt(z0) + 0.09, z0 + (z1 - z0) * t, { r: [0, Math.atan2(x1 - x0, z1 - z0) + Math.PI / 2 + (r0() - 0.5) * 0.3, 0], fold: i % 2 === 0, crumple: 0.03 }); } };
+  const wall = (x0, z0, x1, z1) => { const n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.3); for (let i = 0; i <= n; i++) { const t = i / n; if (nearRoad(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t) < 0.85) continue; piece(G.box(0.26, 0.16 + r0() * 0.07, 0.2), C.stone, x0 + (x1 - x0) * t, hAt(z0) + 0.09, z0 + (z1 - z0) * t, { r: [0, Math.atan2(x1 - x0, z1 - z0) + Math.PI / 2 + (r0() - 0.5) * 0.3, 0], fold: i % 2 === 0, crumple: 0.03 }); } };
   const fence = (x0, z0, x1, z1) => { const n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.5), ry = Math.atan2(x1 - x0, z1 - z0), y = hAt(z0); for (let i = 0; i <= n; i++) piece(G.box(0.05, 0.32, 0.05), C.wood, x0 + (x1 - x0) * i / n, y + 0.16, z0 + (z1 - z0) * i / n, { fold: false });
     piece(G.box(0.03, 0.04, Math.hypot(x1 - x0, z1 - z0)), C.wood, (x0 + x1) / 2, y + 0.24, (z0 + z1) / 2, { r: [0, ry, 0], fold: false }); };
-  const plot = (x, z, w, d, ry) => { const g = group(x, z, ry); piece(G.box(w, 0.04, d), C.kraftD, 0, 0.03, 0, { to: g }); for (let i = 0; i < 4; i++) for (let j = 0; j < Math.round(d / 0.28); j++) piece(G.cone(0.06, 0.13, 4), C.leaf2, (i - 1.5) * w * 0.22, 0.11, (j + 0.5) * 0.28 - d / 2, { to: g, fold: false, cast: false }); };
+  const plot = (x, z, w, d, ry) => { if (nearRoad(x, z) < 0.75 + Math.max(w, d) / 2) return; const g = group(x, z, ry); piece(G.box(w, 0.04, d), C.kraftD, 0, 0.03, 0, { to: g }); for (let i = 0; i < 4; i++) for (let j = 0; j < Math.round(d / 0.28); j++) piece(G.cone(0.06, 0.13, 4), C.leaf2, (i - 1.5) * w * 0.22, 0.11, (j + 0.5) * 0.28 - d / 2, { to: g, fold: false, cast: false }); };
   // village on the top terraces: houses of different sizes and roofs, close together, with alleys between
   const HC = [C.cream, C.creamD, C.kraft, C.cream], RC = [C.slate, C.verm, C.kraftD, C.navy3];
   [[-5.6, -13.9, 1.5, 1.0, 1.2, 0.1, 0], [-3.9, -14.6, 1.2, 1.5, 1.1, -0.06, 1], [-1.7, -14.0, 1.6, 1.0, 1.2, 0.05, 0], [0.4, -14.5, 1.2, 1.2, 1.1, -0.04, 2], [2.2, -13.9, 1.5, 1.1, 1.2, 0.06, 0], [4.2, -14.4, 1.3, 1.6, 1.1, -0.08, 1], [5.9, -13.8, 1.2, 0.9, 1.1, 0.04, 2],
@@ -114,9 +116,17 @@ export async function createStage(frame, SHAPES) {
     for (let i = 1; i < 6; i++) piece(G.box(0.02, 0.2 + (i % 2) * 0.06, 0.2), [C.cream, C.verm, C.creamD][i % 3], x0 + (x1 - x0) * i / 6, y - 0.12, z0 + (z1 - z0) * i / 6, { r: [0, ry, 0], fold: false }); }
   for (const [x, z] of [[-3.6, -13.6], [1.3, -13.5], [4.9, -15.5], [-1.9, -17.6]]) lamp(x, hAt(z) + 0.8, z, 3.4, 4.2);                                         // window light on the village streets
   for (const [x, z, s] of [[-7.2, -12.9, 1.1], [7.3, -12.6, 1.2], [-6.6, -17.6, 1.3], [6.6, -17.9, 1.2], [-5.2, -19.9, 1.4], [0.2, -20.3, 1.3], [4.6, -20.1, 1.4], [-2.6, -20.4, 1.2], [2.4, -20.6, 1.1], [-7.4, -6.6, 1.1], [7.6, -9.6, 1.2], [-7.6, 0.4, 1.0], [7.7, 0.9, 1.1], [-7.3, 6.6, 1.0], [1.4, 7.9, 0.9], [-0.9, 8.6, 1.0], [7.4, -3.6, 1.0], [-1.9, 5.9, 0.9], [0.6, -7.3, 1.0], [-5.3, -6.9, 1.0]]) tree(x, z, s);
-  wall(-2.0, 5.2, 0.4, 4.9); wall(-5.4, -0.6, -2.9, -1.8); wall(1.6, -6.6, 4.4, -6.8); wall(-6.8, -8.4, -4.0, -7.6); fence(-2.3, 3.5, -0.7, 2.6); fence(-1.5, -3.6, -4.0, -4.4); fence(2.7, -8.8, 5.2, -8.5); fence(-6.7, -10.0, -3.8, -9.3);
-  plot(-0.9, 4.2, 1.3, 1.0, 0.15); plot(0.5, 3.9, 0.9, 0.9, -0.1); plot(-4.3, -2.2, 1.4, 1.0, 0.4); plot(3.0, -7.9, 1.5, 1.0, 0.05); plot(-5.4, -8.9, 1.5, 1.0, 0.25);
-  for (let i = 0; i < 46; i++) { const z = Z0 + 1.5 + r0() * (Z1 - Z0 - 3), x = (r0() * 2 - 1) * (halfW(z) - 0.9); (i % 3 ? tuft : i % 2 ? bush : (a, b) => rock(a, b, 0.14 + r0() * 0.16))(x, z); }
+  const stones = (x0, z0, x1, z1) => { const n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.42); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n + (r0() - 0.5) * 0.12, z = z0 + (z1 - z0) * i / n + (r0() - 0.5) * 0.12; if (nearRoad(x, z) > 0.7) piece(G.cyl(0.15, 0.17, 0.05, 6), C.creamD, x, hAt(z) + 0.03, z, { r: [0, r0() * 3, 0], cast: false, crumple: 0.02 }); } };
+  const flowers = (x, z) => { if (nearRoad(x, z) < 1.0) return; for (let i = 0; i < 9; i++) { const a = r0() * 6.283, d = r0() * 0.5; piece(G.oct(0.055), [C.creamD, C.verm, C.cream][i % 3], x + Math.cos(a) * d, hAt(z) + 0.07, z + Math.sin(a) * d * 0.8, { fold: false, cast: false, crumple: 0 }); } };
+  const GRASS = 0x304a52, CROP = 0x4a4436;
+  for (const [x, z, w, d, s] of [[-1.2, 8.6, 2.6, 1.8, 41], [1.6, 9.6, 2.2, 1.4, 42], [-7.0, 6.4, 1.6, 2.4, 43], [7.3, 5.6, 1.4, 2.0, 44], [2.0, 3.6, 1.6, 1.2, 45], [-2.6, 3.6, 2.2, 1.0, 46], [3.6, -0.8, 2.6, 1.8, 47], [-1.2, -2.6, 1.8, 1.6, 48], [6.9, -2.6, 1.8, 2.2, 49], [-3.6, -6.6, 3.0, 1.2, 50], [-7.2, -6.0, 1.4, 2.0, 51], [2.4, -7.4, 2.4, 1.6, 52], [-0.6, -10.8, 2.6, 1.2, 53], [6.6, -11.0, 2.0, 1.4, 54], [-7.0, -9.6, 1.6, 2.0, 55], [3.2, -11.5, 1.8, 1.0, 56]])
+    patch([[x - w / 2, z - d / 2], [x + w / 2, z - d / 2 + 0.2], [x + w / 2 + 0.2, z + d / 2], [x - w / 2 - 0.1, z + d / 2 - 0.15]], s % 3 ? GRASS : CROP, s);
+  wall(-2.4, 9.6, 0.2, 9.4); wall(0.4, 4.6, 2.9, 4.3); wall(-7.6, 5.2, -7.2, 7.6); wall(2.2, 0.2, 5.0, -0.1); wall(-2.2, -1.7, -0.3, -3.4); wall(5.9, -1.5, 7.9, -1.9); wall(-5.2, -7.0, -2.0, -6.9); wall(1.2, -6.9, 3.6, -8.3); wall(-1.9, -11.5, 0.7, -11.6); wall(5.6, -10.4, 7.6, -10.6);
+  fence(-2.0, 7.9, -0.4, 7.7); fence(3.0, -1.6, 4.8, -1.4); fence(-7.6, -8.6, -6.4, -10.6); fence(2.4, -11.0, 4.0, -11.9); fence(6.2, 4.6, 8.0, 6.6);
+  plot(-1.2, 8.7, 1.5, 1.1, 0.1); plot(1.6, 9.6, 1.3, 0.9, -0.1); plot(-2.6, 3.6, 1.4, 0.7, 0.05); plot(3.6, -0.8, 1.6, 1.1, 0.1); plot(6.9, -2.9, 1.1, 1.3, 0); plot(-3.6, -6.6, 1.8, 0.8, 0.05); plot(2.4, -7.4, 1.5, 1.0, -0.2); plot(-0.6, -10.8, 1.6, 0.8, 0.05); plot(-7.0, -9.4, 1.0, 1.3, 0.1);
+  stones(-2.4, 8.0, -3.4, 8.8); stones(0.6, 3.0, 0.4, 2.2); stones(-2.4, -2.0, -3.0, -1.1); stones(-5.2, -3.4, -5.5, -4.0); stones(1.0, -4.0, 1.6, -4.6); stones(3.2, -8.0, 3.9, -9.4); stones(0.9, -10.6, 1.4, -9.6); stones(-2.8, -8.0, -2.4, -8.8); stones(7.0, -1.2, 6.2, -0.2); stones(-6.6, -9.9, -5.8, -10.9);
+  for (const [x, z] of [[-0.2, 7.8], [2.6, 8.9], [-7.2, 3.4], [7.6, 3.6], [1.9, 3.0], [-1.0, -1.4], [4.6, -2.4], [-7.4, -4.9], [-0.4, -7.2], [5.0, -8.0], [-4.4, -8.6], [1.8, -11.9], [7.0, -9.6], [-6.9, -11.9]]) flowers(x, z);
+  for (let i = 0; i < 90; i++) { const z = Z0 + 1.5 + r0() * (Z1 - Z0 - 3), x = (r0() * 2 - 1) * (halfW(z) - 0.9); if (nearRoad(x, z) > 0.9) (i % 3 ? tuft : i % 2 ? bush : (a, b) => rock(a, b, 0.14 + r0() * 0.16))(x, z); }
   // harbour: a pier, rowboats on the water, lobster traps, a net laid out to dry
   { const g = group(-5.5, 12.6, 0, 0); piece(G.box(1.3, 0.1, 3.2), C.kraft, 0, 0.12, 0, { to: g }); for (const [x, z] of [[-0.6, -1.3], [0.6, -1.3], [-0.6, 0.2], [0.6, 0.2], [-0.6, 1.5], [0.6, 1.5]]) piece(G.box(0.1, 0.7, 0.1), C.wood, x, -0.15, z, { to: g, fold: false }); for (let i = 0; i < 7; i++) piece(G.box(1.32, 0.012, 0.03), C.kraftD, 0, 0.18, -1.4 + i * 0.47, { to: g, fold: false, cast: false }); }
   const boat = (x, z, ry) => { const g = group(x, z, ry, -0.32); piece(G.oct(0.5), C.kraft, 0, 0.12, 0, { to: g, s: [0.62, 0.42, 1.5] }); piece(G.box(0.5, 0.03, 0.1), C.creamD, 0, 0.2, -0.2, { to: g, fold: false }); piece(G.box(0.5, 0.03, 0.1), C.creamD, 0, 0.2, 0.25, { to: g, fold: false }); };
@@ -138,7 +148,7 @@ export async function createStage(frame, SHAPES) {
     beacon: g => { piece(G.cyl(0.62, 0.74, 0.42, 6), C.stone, 0, 0.26, 0, { to: g }); piece(G.cyl(0.5, 0.58, 0.2, 6), C.creamD, 0, 0.56, 0, { to: g }); piece(G.cyl(0.62, 0.34, 0.26, 8), C.kraftD, 0, 0.8, 0, { to: g }); piece(G.oct(0.3), FLAME, 0, 1.2, 0, { to: g, s: [1, 1.6, 1] }); piece(G.oct(0.18), glow(1.8, 0.7, 0.2), 0.14, 1.06, 0.12, { to: g, s: [1, 1.5, 1] }); return [0, 1.2, 0.1]; },
   };
   for (const [i, t] of Object.entries(BUILT)) { const [x, z] = SPOTS[i], g = group(x, z), p = TW[t](g); lamp(x + p[0], hAt(z) + p[1], z + p[2], 4.6, 4.2); }
-  for (const [x, z] of POSTS) { const g = group(x, z); piece(G.box(0.06, 1.0, 0.06), C.wood, 0, 0.5, 0, { to: g, fold: false }); piece(G.box(0.34, 0.05, 0.05), C.wood, 0.14, 1.0, 0, { to: g, fold: false }); piece(G.cyl(0.1, 0.1, 0.24, 6), AMBER, 0.28, 0.8, 0, { to: g }); piece(G.cone(0.14, 0.09, 6), C.verm, 0.28, 0.97, 0, { to: g, fold: false }); lamp(x + 0.28, hAt(z) + 0.78, z + 0.05, 4.2, 3.6); }
+  for (const [x, z] of POSTS2) { const g = group(x, z); piece(G.box(0.06, 1.0, 0.06), C.wood, 0, 0.5, 0, { to: g, fold: false }); piece(G.box(0.34, 0.05, 0.05), C.wood, 0.14, 1.0, 0, { to: g, fold: false }); piece(G.cyl(0.1, 0.1, 0.24, 6), AMBER, 0.28, 0.8, 0, { to: g }); piece(G.cone(0.14, 0.09, 6), C.verm, 0.28, 0.97, 0, { to: g, fold: false }); lamp(x + 0.28, hAt(z) + 0.78, z + 0.05, 4.2, 3.6); }
 
   // ---------- units: black paper, round amber eyes, a thin pale rim; exaggerated about 1.5x against the houses ----------
   const EYE = glow(1.55, 0.86, 0.22), PUPIL = new THREE.MeshBasicMaterial({ color: 0x120e1c }), GLINT = new THREE.MeshBasicMaterial({ color: 0xfff6e0 }), RIM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.62, 0.68, 0.86), side: THREE.BackSide });
@@ -162,26 +172,27 @@ export async function createStage(frame, SHAPES) {
     ['crab', 1, 0.2, 0, 1], ['crab', 0, 0.46, 0.05, 0.75], ['crab', 0, 0.7, 0, 0.9], ['octo', 1, 0.27, 0.05, 1], ['octo', 0, 0.52, -0.05, 0.6], ['octo', 0, 0.9, 0.05, 0.4]]) { const [x, z] = on(lane, f, off); put(k, x, z, hp); }
   { const [x, z] = on(0, 0.27, 0); put('boss', x, z, 0.85); }
   { const [x, z] = on(0, 0.64, 0.1); put('hero', x, z, 0.9, true); lamp(x + 0.7, lift(z) + 0.85, z + 0.2, 5, 3.6); }
-  { const [x, z] = on(0, 0.415, 0); [[-0.4, 0.1], [0.38, -0.05], [0, 0.42]].forEach(([dx, dz], i) => put('soldier', x + dx, z + dz, i === 1 ? 0.6 : 1, true)); }
+  { let x = 0, z = 0, bd = 99; for (const q of lanes[0]) { const d = Math.hypot(q[0] - SPOTS[6][0], q[1] - SPOTS[6][1]); if (d < bd) { bd = d; x = q[0]; z = q[1]; } } [[-0.4, 0.1], [0.38, -0.05], [0, 0.42]].forEach(([dx, dz], i) => put('soldier', x + dx, z + dz, i === 1 ? 0.6 : 1, true)); }
   // one hit caught in mid-air: the pop ring, scraps and the burning arrow (the brightest things on the board)
   { const [x, z] = on(0, 0.36, -0.1), y = lift(z), g = group(x, z + 0.1, 0, y), white = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.9, 1.8, 1.5), side: THREE.DoubleSide });
     piece(new THREE.RingGeometry(0.66, 0.75, 28), white, 0, 0.7, 0.25, { to: g, r: [FACE, 0, 0] });
     for (let i = 0; i < 9; i++) { const a = i / 9 * 6.283, c = [glow(1.6, 0.42, 0.18), glow(1.7, 1.0, 0.28), glow(1.7, 1.6, 1.25)][i % 3]; c.side = THREE.DoubleSide; piece(new THREE.CircleGeometry(0.09, 5), c, Math.cos(a) * 0.9, 0.75 + Math.sin(a) * 0.7, 0.3, { to: g, r: [FACE + r0(), r0() * 3, r0() * 3] }); }
     const s = SPOTS[4], a = new THREE.Vector3(s[0], 2.0, s[1]), b = new THREE.Vector3(x, y + 0.7, z), mid = a.clone().lerp(b, 0.6), arrow = piece(G.box(0.06, 0.06, 0.9), glow(2.0, 1.25, 0.4), mid.x, mid.y, mid.z); arrow.lookAt(b); }
 
-  // ---------- sea: rows of folded paper strips; only the crest of each fold is cream ----------
+  // ---------- sea: deep navy paper folded into long bands that overlap and bob; cream only on the top of a fold; faint warm reflections ----------
   const waves = [];
-  { const sea = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), grain(new THREE.MeshLambertMaterial({ color: 0x0c1424, map: paper }))); sea.rotation.x = -Math.PI / 2; sea.position.y = -0.62; sea.receiveShadow = true; scene.add(sea);
-    const crestMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.48, 0.41), map: paper, side: THREE.DoubleSide }), rw = rng(9), rowMat = [grain(new THREE.MeshLambertMaterial({ color: 0x2a3e5a, map: paper, flatShading: true, side: THREE.DoubleSide })), grain(new THREE.MeshLambertMaterial({ color: 0x223450, map: paper, flatShading: true, side: THREE.DoubleSide }))];
-    const row = (z, x0, x1, h) => { const pos = [], cp = [], g = new THREE.Group(); let gap = 0; for (let x = x0 + rw() * 0.5; x < x1; x += 0.55) { if (gap > 0) { gap--; continue; } if (rw() < 0.09) { gap = 1 + Math.floor(rw() * 3); continue; }   // strips of different lengths, not one line across the sea
-        const a = [x, h * (0.55 + 0.45 * Math.sin(x * 1.7 + z)) + rw() * 0.05], b = [x + 0.55, h * (0.55 + 0.45 * Math.sin((x + 0.55) * 1.7 + z)) + rw() * 0.05];
-        pos.push(a[0], 0, 0.34, b[0], 0, 0.34, a[0], a[1], 0, a[0], a[1], 0, b[0], 0, 0.34, b[0], b[1], 0, a[0], a[1], 0, b[0], b[1], 0, a[0], 0, -0.3, a[0], 0, -0.3, b[0], b[1], 0, b[0], 0, -0.3); cp.push(a[0], a[1] + 0.012, 0.05, b[0], b[1] + 0.012, 0.05, a[0], a[1] + 0.012, -0.04, a[0], a[1] + 0.012, -0.04, b[0], b[1] + 0.012, 0.05, b[0], b[1] + 0.012, -0.04); }
+  { const sea = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), grain(new THREE.MeshLambertMaterial({ color: 0x18274a, map: paper }))); sea.rotation.x = -Math.PI / 2; sea.position.y = -0.95; scene.add(sea);
+    const NAVY = [0x1c2d52, 0x22355c, 0x192848, 0x263a62, 0x1e3056].map(col => grain(new THREE.MeshLambertMaterial({ color: col, map: paper, flatShading: true, side: THREE.DoubleSide }))), crestMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.46, 0.44, 0.37), map: paper, side: THREE.DoubleSide });
+    let k = 0; for (let z = Z0 - 9; z < Z1 + 11; z += 1.45, k++) { const pos = [], cp = [], g = new THREE.Group(), ph = k * 2.3, H = x => 0.1 + 0.34 * Math.pow(Math.max(0, Math.sin(x * 0.55 + ph) * 0.6 + Math.sin(x * 1.3 + ph * 2) * 0.4), 1.4), ZO = x => Math.sin(x * 0.35 + ph) * 0.35;
+      for (let x = -14; x < 14; x += 0.7) { const x1 = x + 0.7, a = [x, H(x), ZO(x)], b = [x1, H(x1), ZO(x1)];
+        pos.push(a[0], 0, a[2] + 0.95, b[0], 0, b[2] + 0.95, a[0], a[1], a[2], a[0], a[1], a[2], b[0], 0, b[2] + 0.95, b[0], b[1], b[2], a[0], a[1], a[2], b[0], b[1], b[2], a[0], 0, a[2] - 0.85, a[0], 0, a[2] - 0.85, b[0], b[1], b[2], b[0], 0, b[2] - 0.85);
+        if (a[1] > 0.3 && b[1] > 0.3) cp.push(a[0], a[1] + 0.012, a[2] + 0.07, b[0], b[1] + 0.012, b[2] + 0.07, a[0], a[1] + 0.012, a[2] - 0.05, a[0], a[1] + 0.012, a[2] - 0.05, b[0], b[1] + 0.012, b[2] + 0.07, b[0], b[1] + 0.012, b[2] - 0.05); }
       const uvOf = arr => { const u = []; for (let i = 0; i < arr.length; i += 3) u.push(arr[i] * 0.4, arr[i + 2] * 0.4 + arr[i + 1]); return u; };
-      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvOf(pos), 2)); geo.computeVertexNormals();
-      const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3)); cg.setAttribute('uv', new THREE.Float32BufferAttribute(uvOf(cp), 2));
-      const m = new THREE.Mesh(geo, rowMat[z > 13 ? 1 : 0]); m.receiveShadow = true; g.add(m, new THREE.Mesh(cg, crestMat)); g.position.set(0, -0.6, z); scene.add(g); waves.push({ g, ph: z * 1.3, sp: 0.5 + rw() * 0.5 }); };
-    for (let z = Z1 + 0.9, i = 0; z < Z1 + 9; z += 0.75, i++) row(z, -12, 12, 0.3 + i * 0.012);
-    for (let z = Z0 - 6; z < Z1 + 0.5; z += 1.5) { const w = z < Z0 ? 0 : halfW(z) + 0.7; if (z >= Z0 && w < 11) { row(z, -12.5, -w - 0.2, 0.26); row(z, w + 0.2, 12.5, 0.26); } if (z < Z0 - 0.8) row(z + 0.7, -12, 12, 0.26); } }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvOf(pos), 2)); geo.computeVertexNormals(); const m = new THREE.Mesh(geo, NAVY[k % 5]); m.receiveShadow = true; g.add(m);
+      if (cp.length) { const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3)); cg.setAttribute('uv', new THREE.Float32BufferAttribute(uvOf(cp), 2)); g.add(new THREE.Mesh(cg, crestMat)); }
+      g.position.set(0, -0.92, z); scene.add(g); waves.push({ g, ph: k * 1.3, sp: 0.45 + (k % 3) * 0.14 }); }
+    const refMat = new THREE.MeshBasicMaterial({ map: pLight, color: 0xff9a40, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.1 });   // lantern and window light lying faintly on the water
+    for (const [x, z, w, d] of [[7.0, 13.4, 2.2, 5.0], [-5.5, 15.6, 1.8, 3.6], [-4.4, 12.6, 1.4, 2.6], [4.8, 12.6, 1.4, 2.8], [-9.9, -14.5, 1.6, 3.0], [9.9, -14.2, 1.6, 3.0], [9.9, -6.4, 1.3, 2.4], [-9.9, -3.6, 1.3, 2.4], [0, -23.6, 3.0, 2.4]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), refMat); m.rotation.x = -Math.PI / 2; m.position.set(x, -0.3, z); m.renderOrder = 2; scene.add(m); } }
 
   // ---------- light: the moon casts the shadows; everything warm is a point light ----------
   scene.add(new THREE.HemisphereLight(0x5c6890, 0x0c0e18, 1.2));
@@ -190,19 +201,20 @@ export async function createStage(frame, SHAPES) {
 
   // ---------- post: capped bloom, then tilt-shift (top and bottom of the picture soften, the middle stays sharp) ----------
   const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.26, 0.5, 0.92); composer.addPass(bloom);
-  const tilt = new ShaderPass({ uniforms: { tDiffuse: { value: null }, uPx: { value: new THREE.Vector2(1 / 450, 1 / 800) }, uAmt: { value: 2.6 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uPx; uniform float uAmt; varying vec2 vUv; void main(){ float k = smoothstep(0.2, 0.5, abs(vUv.y - 0.52)) * uAmt; vec3 c = vec3(0.0); float n = 0.0;
+  const tilt = new ShaderPass({ uniforms: { tDiffuse: { value: null }, uPx: { value: new THREE.Vector2(1 / 450, 1 / 800) }, uAmt: { value: 1.3 }, uHi: { value: 2 }, uLo: { value: -1 } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uPx; uniform float uAmt, uHi, uLo; varying vec2 vUv; void main(){ float k = max(smoothstep(0.0, 0.07, vUv.y - uHi), smoothstep(0.0, 0.07, uLo - vUv.y)) * uAmt; vec3 c = vec3(0.0); float n = 0.0;
       for (int i = -3; i <= 3; i++) for (int j = -3; j <= 3; j++) { float w = 1.0 - length(vec2(float(i), float(j))) / 4.6; c += texture2D(tDiffuse, vUv + vec2(float(i), float(j)) * uPx * k).rgb * w; n += w; }
-      c /= n; float v = smoothstep(1.15, 0.35, length((vUv - 0.5) * vec2(0.9, 1.1))); gl_FragColor = vec4(c * mix(0.72, 1.0, v), 1.0); }` });
+      c /= n; float v = smoothstep(1.15, 0.35, length((vUv - 0.5) * vec2(0.9, 1.1))); gl_FragColor = vec4(c * mix(0.82, 1.0, v), 1.0); }` });
   composer.addPass(tilt); composer.addPass(new OutputPass());
   const basePR = Math.min(devicePixelRatio || 1, 2), FQ = new URLSearchParams(location.search), FW = +FQ.get('w') || 0, FH = +FQ.get('h') || 0; let W = 1, H = 1, scale = 1, baked = 0;   // ?w=390&h=844 pins the board size for the capture tool
   function resize() { H = FH || innerHeight; W = FW || Math.min(innerWidth, Math.round(H * 9 / 16)); frame.style.width = W + 'px'; frame.style.height = H + 'px'; renderer.setPixelRatio(basePR); renderer.setSize(W, H); composer.setPixelRatio(basePR * scale); composer.setSize(W, H); tilt.uniforms.uPx.value.set(1 / W, 1 / H);
-    const hh = HALF_W * H / W, zt = SEA_Z - (SEA_AT - 0.5) * 2 * hh / Math.sin(TILT); camera.top = hh; camera.bottom = -hh; camera.position.set(0, 80 * Math.sin(TILT), zt + 80 * Math.cos(TILT)); camera.lookAt(0, 0, zt); camera.updateProjectionMatrix(); camera.updateMatrixWorld(); baked = 0; }
-  addEventListener('resize', resize); resize();
-  const _v = new THREE.Vector3(), st = { freeze: 0, fps: 60, hold: true, dawn: 0, probe: false, luma: 0 };
+    const hh = HALF_W * H / W, zt = SEA_Z - (SEA_AT - 0.5) * 2 * hh / Math.sin(TILT); camera.top = hh; camera.bottom = -hh; camera.position.set(0, 80 * Math.sin(TILT), zt + 80 * Math.cos(TILT)); camera.lookAt(0, 0, zt); camera.updateProjectionMatrix(); camera.updateMatrixWorld(); baked = 0;
+    tilt.uniforms.uHi.value = _v.set(0, 4.2, Z0 - 0.6).project(camera).y * 0.5 + 0.5; tilt.uniforms.uLo.value = _v.set(0, -0.6, Z1 + 3.6).project(camera).y * 0.5 + 0.5; }   // top and bottom of the island on screen: nothing between them is ever blurred
+  const _v = new THREE.Vector3(); addEventListener('resize', resize); resize();
+  const st = { freeze: 0, fps: 60, hold: true, dawn: 0, probe: false, luma: 0 };
   const toScreen = (x, y, z) => { _v.set(x, y, z).project(camera); return { x: (_v.x * 0.5 + 0.5) * W, y: (-_v.y * 0.5 + 0.5) * H }; };
   function frameUpdate() { const t = performance.now() * 0.001;
-    for (const w of waves) { w.g.position.x = Math.sin(t * w.sp + w.ph) * 0.25; w.g.position.y = -0.6 + Math.sin(t * w.sp * 1.6 + w.ph) * 0.03; }
+    for (const w of waves) { w.g.position.x = Math.sin(t * w.sp + w.ph) * 0.25; w.g.position.y = -0.92 + Math.sin(t * w.sp * 1.6 + w.ph) * 0.05; }
     for (const a of lamps) a.l.intensity = a.power * (0.95 + 0.05 * Math.sin(t * 5 + a.ph));
     for (let i = 0; i < rings.length; i++) rings[i].scale.setScalar(1 + 0.07 * Math.sin(t * 2.6 + i));
     if (baked < 3) { moon.shadow.needsUpdate = true; baked++; }
