@@ -194,11 +194,12 @@ export async function createStage(frame, SHAPES) {
       const mk = (arr, mat) => { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvOf(arr), 2)); geo.computeVertexNormals(); const m = new THREE.Mesh(geo, mat); g.add(m); return m; };
       mk(pos, NAVY[k % 5]).receiveShadow = true; if (rp.length) mk(rp, ridgeMat); if (cp.length) mk(cp, crestMat);
       g.position.set(0, -0.92, z); scene.add(g); waves.push({ g, ph: k * 1.3, sp: 0.45 + (k % 3) * 0.14 }); }
-    // lantern and window light on the water: a short column of amber paper slivers running towards the viewer, narrower and dimmer as it goes
-    const reflMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.25, 0.12, 0.025), map: paper, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, side: THREE.DoubleSide });
-    const refl = (x, z, w, len = 6) => { const L = [], R = []; for (let i = 0; i <= len; i++) { const f = 1 - i / len, h = w / 2 * f * (i % 2 ? 0.5 : 1) + 0.02, j = (r0() - 0.5) * 0.12; L.push(new THREE.Vector2(-h + j, i * 0.42)); R.push(new THREE.Vector2(h + j, i * 0.42 + 0.14)); }
-      const m = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([...L, ...R.reverse()])), reflMat); m.rotation.x = Math.PI / 2; m.position.set(x, -0.2, z); m.renderOrder = 2; scene.add(m); reflections.push({ m, x, ph: r0() * 6 }); };
-    refl(7.0, 12.2, 1.5, 8); refl(-5.5, 13.2, 1.1, 7); refl(-4.4, 12.1, 0.8, 5); refl(4.6, 12.0, 0.9, 6); refl(0.4, 12.3, 0.7, 5); }
+    // light on the water: one very soft amber streak under the lighthouse and one under the pier, no hard shape
+    { const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128; const c2 = cv.getContext('2d'), im = c2.createImageData(64, 128);
+      for (let y = 0; y < 128; y++) for (let x = 0; x < 64; x++) { const u = (x - 31.5) / 32, v = y / 127, w = Math.exp(-u * u * 7) * Math.pow(1 - v, 1.6) * Math.min(1, v * 8), o = (y * 64 + x) * 4; im.data[o] = 255 * w; im.data[o + 1] = 150 * w; im.data[o + 2] = 50 * w; im.data[o + 3] = 255; }
+      c2.putImageData(im, 0, 0); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace;
+      const gm = new THREE.MeshBasicMaterial({ map: tx, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.16 });
+      for (const [x, z, w, d] of [[7.0, 11.9, 1.7, 5.2], [-6.0, 12.3, 1.3, 4.2]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), gm); m.rotation.x = -Math.PI / 2; m.position.set(x, -0.18, z + d / 2); m.renderOrder = 2; scene.add(m); reflections.push({ m, x, ph: x }); } } }
 
   // ---------- light: the moon casts the shadows; everything warm is a point light ----------
   scene.add(new THREE.HemisphereLight(0x5c6890, 0x0c0e18, 1.2));
