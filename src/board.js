@@ -116,8 +116,8 @@ export async function createStage(frame, SHAPES) {
     for (let i = 1; i < 6; i++) piece(G.box(0.02, 0.2 + (i % 2) * 0.06, 0.2), [C.cream, C.verm, C.creamD][i % 3], x0 + (x1 - x0) * i / 6, y - 0.12, z0 + (z1 - z0) * i / 6, { r: [0, ry, 0], fold: false }); }
   for (const [x, z] of [[-3.6, -13.6], [1.3, -13.5], [4.9, -15.5], [-1.9, -17.6]]) lamp(x, hAt(z) + 0.8, z, 3.4, 4.2);                                         // window light on the village streets
   for (const [x, z, s] of [[-7.2, -12.9, 1.1], [7.3, -12.6, 1.2], [-6.6, -17.6, 1.3], [6.6, -17.9, 1.2], [-5.2, -19.9, 1.4], [0.2, -20.3, 1.3], [4.6, -20.1, 1.4], [-2.6, -20.4, 1.2], [2.4, -20.6, 1.1], [-7.4, -6.6, 1.1], [7.6, -9.6, 1.2], [-7.6, 0.4, 1.0], [7.7, 0.9, 1.1], [-7.3, 6.6, 1.0], [1.4, 7.9, 0.9], [-0.9, 8.6, 1.0], [7.4, -3.6, 1.0], [-1.9, 5.9, 0.9], [0.6, -7.3, 1.0], [-5.3, -6.9, 1.0]]) tree(x, z, s);
-  const stones = (x0, z0, x1, z1) => { const n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.42); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n + (r0() - 0.5) * 0.12, z = z0 + (z1 - z0) * i / n + (r0() - 0.5) * 0.12; if (nearRoad(x, z) > 0.7) piece(G.cyl(0.15, 0.17, 0.05, 6), C.creamD, x, hAt(z) + 0.03, z, { r: [0, r0() * 3, 0], cast: false, crumple: 0.02 }); } };
-  const flowers = (x, z) => { if (nearRoad(x, z) < 1.0) return; for (let i = 0; i < 9; i++) { const a = r0() * 6.283, d = r0() * 0.5; piece(G.oct(0.055), [C.creamD, C.verm, C.cream][i % 3], x + Math.cos(a) * d, hAt(z) + 0.07, z + Math.sin(a) * d * 0.8, { fold: false, cast: false, crumple: 0 }); } };
+  const stones = (x0, z0, x1, z1) => { const n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.5); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n + (r0() - 0.5) * 0.12, z = z0 + (z1 - z0) * i / n + (r0() - 0.5) * 0.12; if (nearRoad(x, z) > 0.7) piece(G.cyl(0.2, 0.23, 0.06, 6), 0xb4aa92, x, hAt(z) + 0.03, z, { r: [0, r0() * 3, 0], cast: false, crumple: 0.02 }); } };
+  const flowers = (x, z) => { if (nearRoad(x, z) < 1.0) return; for (let i = 0; i < 12; i++) { const a = r0() * 6.283, d = 0.1 + r0() * 0.55; piece(G.oct(0.085), [C.cream, C.verm, C.cream, C.creamD][i % 4], x + Math.cos(a) * d, hAt(z) + 0.07, z + Math.sin(a) * d * 0.8, { fold: false, cast: false, crumple: 0 }); } };
   const GRASS = 0x304a52, CROP = 0x4a4436;
   for (const [x, z, w, d, s] of [[-1.2, 8.6, 2.6, 1.8, 41], [1.6, 9.6, 2.2, 1.4, 42], [-7.0, 6.4, 1.6, 2.4, 43], [7.3, 5.6, 1.4, 2.0, 44], [2.0, 3.6, 1.6, 1.2, 45], [-2.6, 3.6, 2.2, 1.0, 46], [3.6, -0.8, 2.6, 1.8, 47], [-1.2, -2.6, 1.8, 1.6, 48], [6.9, -2.6, 1.8, 2.2, 49], [-3.6, -6.6, 3.0, 1.2, 50], [-7.2, -6.0, 1.4, 2.0, 51], [2.4, -7.4, 2.4, 1.6, 52], [-0.6, -10.8, 2.6, 1.2, 53], [6.6, -11.0, 2.0, 1.4, 54], [-7.0, -9.6, 1.6, 2.0, 55], [3.2, -11.5, 1.8, 1.0, 56]])
     patch([[x - w / 2, z - d / 2], [x + w / 2, z - d / 2 + 0.2], [x + w / 2 + 0.2, z + d / 2], [x - w / 2 - 0.1, z + d / 2 - 0.15]], s % 3 ? GRASS : CROP, s);
@@ -180,19 +180,25 @@ export async function createStage(frame, SHAPES) {
     const s = SPOTS[4], a = new THREE.Vector3(s[0], 2.0, s[1]), b = new THREE.Vector3(x, y + 0.7, z), mid = a.clone().lerp(b, 0.6), arrow = piece(G.box(0.06, 0.06, 0.9), glow(2.0, 1.25, 0.4), mid.x, mid.y, mid.z); arrow.lookAt(b); }
 
   // ---------- sea: deep navy paper folded into long bands that overlap and bob; cream only on the top of a fold; faint warm reflections ----------
-  const waves = [];
+  const waves = [], reflections = [];
   { const sea = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), grain(new THREE.MeshLambertMaterial({ color: 0x18274a, map: paper }))); sea.rotation.x = -Math.PI / 2; sea.position.y = -0.95; scene.add(sea);
-    const NAVY = [0x1c2d52, 0x22355c, 0x192848, 0x263a62, 0x1e3056].map(col => grain(new THREE.MeshLambertMaterial({ color: col, map: paper, flatShading: true, side: THREE.DoubleSide }))), crestMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.46, 0.44, 0.37), map: paper, side: THREE.DoubleSide });
-    let k = 0; for (let z = Z0 - 9; z < Z1 + 11; z += 1.45, k++) { const pos = [], cp = [], g = new THREE.Group(), ph = k * 2.3, H = x => 0.1 + 0.34 * Math.pow(Math.max(0, Math.sin(x * 0.55 + ph) * 0.6 + Math.sin(x * 1.3 + ph * 2) * 0.4), 1.4), ZO = x => Math.sin(x * 0.35 + ph) * 0.35;
+    const NAVY = [0x1f2f56, 0x273a63, 0x19264a, 0x2e416c, 0x22335b].map(col => grain(new THREE.MeshLambertMaterial({ color: col, map: paper, flatShading: true, side: THREE.DoubleSide }))), crestMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.48, 0.4), map: paper, side: THREE.DoubleSide }), ridgeMat = new THREE.MeshBasicMaterial({ color: 0x384a74, map: paper, side: THREE.DoubleSide });
+    // each band is one folded strip: a long back slope that catches the moon, a sharp ridge, a short steep face towards the viewer
+    let k = 0; for (let z = Z0 - 9; z < Z1 + 11; z += 1.2 + ((k * 7) % 5) * 0.15, k++) { const pos = [], cp = [], rp = [], g = new THREE.Group(), ph = k * 2.3, H = x => 0.2 + 0.42 * Math.pow(Math.max(0, Math.sin(x * 0.55 + ph) * 0.6 + Math.sin(x * 1.3 + ph * 2) * 0.4), 1.4), ZO = x => Math.sin(x * 0.35 + ph) * 0.4 + Math.sin(x * 0.9 + ph * 1.7) * 0.12;
+      const strip = (out, a, b, f, bk, up) => out.push(a[0], a[1] + up, a[2] + f, b[0], b[1] + up, b[2] + f, a[0], a[1] + up, a[2] - bk, a[0], a[1] + up, a[2] - bk, b[0], b[1] + up, b[2] + f, b[0], b[1] + up, b[2] - bk);
       for (let x = -14; x < 14; x += 0.7) { const x1 = x + 0.7, a = [x, H(x), ZO(x)], b = [x1, H(x1), ZO(x1)];
-        pos.push(a[0], 0, a[2] + 0.95, b[0], 0, b[2] + 0.95, a[0], a[1], a[2], a[0], a[1], a[2], b[0], 0, b[2] + 0.95, b[0], b[1], b[2], a[0], a[1], a[2], b[0], b[1], b[2], a[0], 0, a[2] - 0.85, a[0], 0, a[2] - 0.85, b[0], b[1], b[2], b[0], 0, b[2] - 0.85);
-        if (a[1] > 0.3 && b[1] > 0.3) cp.push(a[0], a[1] + 0.012, a[2] + 0.07, b[0], b[1] + 0.012, b[2] + 0.07, a[0], a[1] + 0.012, a[2] - 0.05, a[0], a[1] + 0.012, a[2] - 0.05, b[0], b[1] + 0.012, b[2] + 0.07, b[0], b[1] + 0.012, b[2] - 0.05); }
+        pos.push(a[0], 0, a[2] + 0.2, b[0], 0, b[2] + 0.2, a[0], a[1], a[2], a[0], a[1], a[2], b[0], 0, b[2] + 0.2, b[0], b[1], b[2], a[0], a[1], a[2], b[0], b[1], b[2], a[0], 0, a[2] - 1.5, a[0], 0, a[2] - 1.5, b[0], b[1], b[2], b[0], 0, b[2] - 1.5);
+        strip(rp, a, b, 0.02, 0.05, 0.01); const wa = Math.min(1, Math.max(0, (a[1] - 0.36) / 0.2)), wb = Math.min(1, Math.max(0, (b[1] - 0.36) / 0.2));
+        if (wa + wb > 0) cp.push(a[0], a[1] + 0.02, a[2] + 0.04 * wa, b[0], b[1] + 0.02, b[2] + 0.04 * wb, a[0], a[1] + 0.02, a[2] - 0.1 * wa, a[0], a[1] + 0.02, a[2] - 0.1 * wa, b[0], b[1] + 0.02, b[2] + 0.04 * wb, b[0], b[1] + 0.02, b[2] - 0.1 * wb); }
       const uvOf = arr => { const u = []; for (let i = 0; i < arr.length; i += 3) u.push(arr[i] * 0.4, arr[i + 2] * 0.4 + arr[i + 1]); return u; };
-      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvOf(pos), 2)); geo.computeVertexNormals(); const m = new THREE.Mesh(geo, NAVY[k % 5]); m.receiveShadow = true; g.add(m);
-      if (cp.length) { const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3)); cg.setAttribute('uv', new THREE.Float32BufferAttribute(uvOf(cp), 2)); g.add(new THREE.Mesh(cg, crestMat)); }
+      const mk = (arr, mat) => { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvOf(arr), 2)); geo.computeVertexNormals(); const m = new THREE.Mesh(geo, mat); g.add(m); return m; };
+      mk(pos, NAVY[k % 5]).receiveShadow = true; if (rp.length) mk(rp, ridgeMat); if (cp.length) mk(cp, crestMat);
       g.position.set(0, -0.92, z); scene.add(g); waves.push({ g, ph: k * 1.3, sp: 0.45 + (k % 3) * 0.14 }); }
-    const refMat = new THREE.MeshBasicMaterial({ map: pLight, color: 0xff9a40, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.1 });   // lantern and window light lying faintly on the water
-    for (const [x, z, w, d] of [[7.0, 13.4, 2.2, 5.0], [-5.5, 15.6, 1.8, 3.6], [-4.4, 12.6, 1.4, 2.6], [4.8, 12.6, 1.4, 2.8], [-9.9, -14.5, 1.6, 3.0], [9.9, -14.2, 1.6, 3.0], [9.9, -6.4, 1.3, 2.4], [-9.9, -3.6, 1.3, 2.4], [0, -23.6, 3.0, 2.4]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), refMat); m.rotation.x = -Math.PI / 2; m.position.set(x, -0.3, z); m.renderOrder = 2; scene.add(m); } }
+    // lantern and window light on the water: a short column of amber paper slivers running towards the viewer, narrower and dimmer as it goes
+    const reflMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.25, 0.12, 0.025), map: paper, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, side: THREE.DoubleSide });
+    const refl = (x, z, w, len = 6) => { const L = [], R = []; for (let i = 0; i <= len; i++) { const f = 1 - i / len, h = w / 2 * f * (i % 2 ? 0.5 : 1) + 0.02, j = (r0() - 0.5) * 0.12; L.push(new THREE.Vector2(-h + j, i * 0.42)); R.push(new THREE.Vector2(h + j, i * 0.42 + 0.14)); }
+      const m = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([...L, ...R.reverse()])), reflMat); m.rotation.x = Math.PI / 2; m.position.set(x, -0.2, z); m.renderOrder = 2; scene.add(m); reflections.push({ m, x, ph: r0() * 6 }); };
+    refl(7.0, 12.2, 1.5, 8); refl(-5.5, 13.2, 1.1, 7); refl(-4.4, 12.1, 0.8, 5); refl(4.6, 12.0, 0.9, 6); refl(0.4, 12.3, 0.7, 5); }
 
   // ---------- light: the moon casts the shadows; everything warm is a point light ----------
   scene.add(new THREE.HemisphereLight(0x5c6890, 0x0c0e18, 1.2));
@@ -215,6 +221,7 @@ export async function createStage(frame, SHAPES) {
   const toScreen = (x, y, z) => { _v.set(x, y, z).project(camera); return { x: (_v.x * 0.5 + 0.5) * W, y: (-_v.y * 0.5 + 0.5) * H }; };
   function frameUpdate() { const t = performance.now() * 0.001;
     for (const w of waves) { w.g.position.x = Math.sin(t * w.sp + w.ph) * 0.25; w.g.position.y = -0.92 + Math.sin(t * w.sp * 1.6 + w.ph) * 0.05; }
+    for (const r of reflections) r.m.position.x = r.x + Math.sin(t * 0.9 + r.ph) * 0.06;
     for (const a of lamps) a.l.intensity = a.power * (0.95 + 0.05 * Math.sin(t * 5 + a.ph));
     for (let i = 0; i < rings.length; i++) rings[i].scale.setScalar(1 + 0.07 * Math.sin(t * 2.6 + i));
     if (baked < 3) { moon.shadow.needsUpdate = true; baked++; }
