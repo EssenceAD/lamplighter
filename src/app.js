@@ -2,6 +2,7 @@
 // Every piece of interface is cut paper pinned over the stage: no glyph symbols, icons are drawn as silhouettes.
 import { Game, Bot, TOWERS, TOWER_ORDER, towerStat, SLOTS, LAST_WAVE, PERKS as PERK_DEF, perkCost, SKILLS, starsFor, sellValue, clamp } from './game.js';
 import { createHarbour } from './harbour.js';
+import { createStage } from './stage.js';
 import * as audio from './audio.js';
 import * as net from './net.js';
 
@@ -47,7 +48,8 @@ const TOOL_ICON = { archer: 'tw_archer', barracks: 'hut', lens: 'tw_lens', beaco
 const LAMP = { body: 'M22 62 C30 56 74 56 82 62 L90 57 L95 63 L84 72 C80 84 66 90 62 92 L66 100 L38 100 L42 92 C36 90 24 84 21 72 L8 66 L10 59 Z M45 57 L46 48 L58 47.6 L59 57 Z', flame: 'M52 6 C63 21 67 30 60 40 C57 46 47 46 44 40 C38 30 45 21 52 6 Z' };
 const lampIc = `<svg class="ic" viewBox="0 0 104 104" aria-hidden="true"><path fill-rule="evenodd" d="${LAMP.body} ${LAMP.flame}"/></svg>`;
 
-const stage = await createHarbour(frame, SHAPES);
+const LOOKDEV = Q.has('lookdev');   // DESIGN.md stage 1: the folded-paper board as a still picture, nothing wired to the rules yet
+const stage = LOOKDEV ? await createStage(frame, SHAPES) : await createHarbour(frame, SHAPES);
 $('#load').remove();
 
 // ---------- state ----------
@@ -271,6 +273,8 @@ window.__ll = {
   },
 };
 showTitle();
+if (LOOKDEV) { game = new Game({ seed: 1, perks: {} }); game.shards = 900; for (const [s, t] of [[4, 'archer'], [1, 'barracks'], [2, 'lens'], [5, 'beacon']]) game.build(s, t);
+  Object.assign(game, { shards: 285, wave: 3, phase: 'wave', windows: 18 }); game.events.length = 0; game.cd.rein = 9; game.hero.hp = game.hero.max * 0.9; playing = true; paused = true; showHud(); updateHud(0); hideTip(); }
 // ?shot=N (tools/artcheck): a scripted night played up to wave N, then held still with the interface hidden, for a picture of the stage alone
 if (Q.has('shot')) { const want = +Q.get('shot') || 6; document.body.classList.add('shot'); startRun({ bot: 'smart', seed: 3 }); stage.st.hold = true; stage.setScale(1);
   for (let t = 0; t < 900 && !game.done && !(game.wave >= want && game.enemies.length >= 6 && game.enemies.some(e => e.z < 2)); t += 0.5) { for (let i = 0; i < 15; i++) advance(1 / 30); stage.frame(0.5, game); }
