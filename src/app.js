@@ -2,7 +2,7 @@
 // Every piece of interface is cut paper pinned over the stage: no glyph symbols, icons are drawn as silhouettes.
 import { Game, Bot, TOWERS, TOWER_ORDER, towerStat, SLOTS, LAST_WAVE, PERKS as PERK_DEF, perkCost, SKILLS, starsFor, sellValue, clamp } from './game.js';
 import { createHarbour } from './harbour.js';
-import { createStage } from './stage.js';
+import { createStage } from './board.js';
 import * as audio from './audio.js';
 import * as net from './net.js';
 

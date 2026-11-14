@@ -15,7 +15,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'applic
 const server = createServer(async (q, s) => { try { let p = decodeURIComponent(new URL(q.url, 'http://x').pathname); if (p.endsWith('/')) p += 'index.html'; const f = path.join(ROOT, p); if (!f.startsWith(ROOT)) throw 0; const body = await readFile(f);
   s.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', 'cache-control': 'no-store' }); s.end(body); } catch (e) { s.writeHead(404); s.end(); } });
 const shoot = (file, w, h) => new Promise((res, rej) => execFile(CHROME, ['--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--hide-scrollbars', '--mute-audio', '--force-device-scale-factor=1',
-  `--window-size=${WW},${WH}`, '--virtual-time-budget=12000', `--screenshot=${file}`, `http://localhost:${PORT}/index.html?lookdev&mute&auto&nosw&w=${w}&h=${h}`], { timeout: 180000 }, err => err && !existsSync(file) ? rej(err) : res(file)));
+  `--window-size=${WW},${WH}`, '--virtual-time-budget=20000', `--screenshot=${file}`, `http://localhost:${PORT}/index.html?lookdev&mute&auto&nosw&w=${w}&h=${h}`], { timeout: 180000 }, err => err && !existsSync(file) ? rej(err) : res(file)));
 if (!CHROME) { console.error('no Chrome/Edge found (set CHROME=path)'); process.exit(2); }
 await mkdir(OUT, { recursive: true }); await new Promise(r => server.listen(PORT, r));
 try { const sizes = [['9x16', 450, 800], ['19.5x9', 390, 844], ['20x9', 360, 800]], imgs = [];
